@@ -1,0 +1,30 @@
+// https://nuxt.com/docs/api/configuration/nuxt-config
+export default defineNuxtConfig({
+  compatibilityDate: '2025-07-15',
+  devtools: { enabled: true },
+  modules: ['@nuxtjs/tailwindcss'],
+  css: ['~/assets/css/main.css'],
+  runtimeConfig: {
+    openrouterApiKey: process.env.OPENROUTER_API_KEY,
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    public: {
+      supabaseUrl: process.env.SUPABASE_URL,
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY
+    }
+  },
+  vite: {
+    server: {
+      allowedHosts: ['.ngrok-free.app', '.ngrok.io']
+    }
+  },
+  app: {
+    head: {
+      titleTemplate: '%s · Kidstory',
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/favicon.png' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
+      ]
+    },
+    pageTransition: { name: 'page', mode: 'out-in' }
+  }
+})
