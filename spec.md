@@ -57,7 +57,7 @@ Derived from the logo, applied the same way the reference design applies its pal
 - Card shadows: soft, low-opacity, warm-toned (not pure black) to keep the cozy feel.
 
 ### 2.5 Illustration Style
-- Kidstory should use a **children's-book illustration style** (flat/painterly, warm palette, friendly characters) rather than the reference's semi-realistic style — appropriate for the younger audience. Placeholder illustration credits/sourcing to be confirmed (see Open Questions).
+- Kidstory should use a **flat 2D cartoon children's-book illustration style** (bold flat colors, cel shading, vibrant palette, cute rounded characters with big expressive eyes; not 3D/CGI, not photorealistic, not painterly/soft-gradient) — appropriate for the younger audience. Per-story cover images are AI-generated (see §8); the free model used has an inherent bias toward soft painterly shading that prompting can only partially override, so actual results vary in how closely they hit this target.
 
 ---
 
@@ -183,7 +183,7 @@ Implementation: Tailwind transition utilities + `@vueuse/motion` (or CSS keyfram
 5. **Newsletter** — is this a real subscription (needs an email service like Mailchimp/ConvertKit) or a placeholder for now?
 6. ~~**Read-aloud/audio narration**~~ — resolved: in scope for v1. Every story gets pre-generated narration audio via a self-hosted Qwen3-TTS model on Hugging Face Spaces; see §8.
 7. **Number of launch stories** — how many stories should be ready at launch, to size the homepage/Stories page properly?
-8. **Domain/deployment target** — e.g. Vercel/Netlify — any preference?
+8. ~~**Domain/deployment target**~~ — resolved: the app is deployed on Vercel (discovered mid-session on 2026-08-22, not originally set up by/known to Claude — its env vars are managed separately in the Vercel dashboard, distinct from local `.env` and the GitHub Actions secrets used by the automated-publishing workflow).
 
 ---
 
@@ -191,7 +191,7 @@ Implementation: Tailwind transition utilities + `@vueuse/motion` (or CSS keyfram
 
 - **Framework:** Nuxt 4, using the new `app/` directory structure, file-based routing (`pages/`), auto-imported components.
 - **Styling:** Tailwind CSS with a custom theme (`tailwind.config.ts`) mapping the color tokens in §2.2, custom `fontFamily`, and `borderRadius` scale tuned for the rounded aesthetic.
-- **Images:** `@nuxt/image` for optimized, responsive illustration/cover images.
+- **Images:** `@nuxt/image` for optimized, responsive illustration/cover images. Per-story cover images are generated (no signup/key needed) via Pollinations.ai (`server/utils/cover-image.ts`'s `buildCoverImageUrl()`), seeded deterministically from the story's slug so the same story always gets the same cached image; the prompt targets the flat-2D-cartoon style in §2.5, though the underlying free model (`sana`, the only model Pollinations currently exposes) has its own stylistic bias, so results vary.
 - **SEO:** Nuxt's built-in `useSeoMeta` per page/story; Open Graph image per story for social sharing.
 - **Accessibility:** semantic headings, alt text on all illustrations, keyboard-navigable nav/filters, color contrast checked against the cream/tan backgrounds, `prefers-reduced-motion` respected.
 - **Responsiveness:** mobile-first; category strip and story grid collapse to horizontal scroll / single column on small screens.

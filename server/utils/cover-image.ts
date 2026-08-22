@@ -12,25 +12,31 @@ function hashSeed(input: string): number {
 
 export function buildCoverImageUrl(story: { title: string; category: string; slug: string }): string {
   const prompt = [
-    "children's book illustration",
+    'flat 2D cartoon illustration',
+    'children\'s picture book art style',
+    'vector illustration, cel shaded',
     `${story.category} theme`,
     story.title,
-    'flat vector art',
-    'soft pastel colors',
-    'warm and gentle',
-    'cute',
-    'simple',
-    'friendly',
+    'cute soft rounded character design with big expressive eyes',
+    'vibrant limited color palette',
+    'bold flat colors, minimal shading',
+    'simple background',
+    'friendly and wholesome',
+    'full bleed illustration',
     'no text',
     'no words',
-    'no scary elements'
+    'no watermark',
+    'no border',
+    'no frame',
+    'not 3D, not CGI, not a 3D render, not photorealistic',
+    'no scary or dark elements'
   ].join(', ')
 
   const query = new URLSearchParams({
     width: '800',
     height: '600',
     seed: String(hashSeed(story.slug)),
-    model: 'flux',
+    model: 'sana',
     nologo: 'true',
     safe: 'true'
   })
