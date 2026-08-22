@@ -106,10 +106,13 @@ export async function generateStoryDraft(
         'X-Title': 'Kidstory Studio'
       },
       body: JSON.stringify({
-        model: 'google/gemma-4-26b-a4b-it:free',
+        // Reasoning is mandatory for this model (can't be disabled via the `reasoning`
+        // param) and consumes several hundred tokens of the budget before the actual
+        // JSON — max_tokens must leave headroom for both, not just the story itself.
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
         messages,
         temperature: 0.85,
-        max_tokens: 1200,
+        max_tokens: 3000,
         response_format: { type: 'json_object' }
       })
     })
