@@ -83,7 +83,7 @@ Modeled closely on the reference layout:
 ### 3.3 Story detail (`/stories/[slug]`)
 - Large title, illustration/banner, category + age badge, read time.
 - Story body in the enhanced reading typography.
-- Optional: read-aloud/audio toggle (stretch goal, §7), font-size control.
+- Read-aloud audio toggle ("Listen"/"Pause") next to Share, playing a pre-generated narration file when available; font-size control.
 - "Next story" / "More like this" recommendations at the end.
 - Share and favorite buttons.
 
@@ -102,6 +102,11 @@ Modeled closely on the reference layout:
 - Chat-style flow: enter a topic (+ optional category/age hint) → the AI drafts a story → owner can ask for changes in follow-up messages → "Publish" inserts the finished story as a new row in the Supabase `stories` table with a generated slug.
 - Server-side only: the OpenRouter API key and the Supabase service-role key both live in `runtimeConfig` (never sent to the client); a Nitro server route calls OpenRouter and another inserts the accepted draft into Supabase.
 - Works on read-only/serverless production hosts, since publishing is a database write rather than a filesystem write.
+
+### 3.7 Automated publishing
+- A new story is generated and published unattended every 12 hours, on top of (not replacing) manual `/studio` use — see §8 for the mechanism.
+- Topics are drawn from a curated seed pool (`shared/utils/topic-pool.ts`, ~60 premises spread across the six categories) without repeats, tracked via a Supabase `used_topics` table; once the pool is exhausted the script asks the model to invent a fresh topic distinct from everything used so far.
+- Automated posts do not trigger read-aloud narration generation (unlike `/studio` publish) — narration remains manual/backfill-only, since the Hugging Face ZeroGPU quota is small and shared with the existing backfill job (see §8).
 
 ---
 
@@ -142,6 +147,8 @@ Stories live in a single Supabase table, `public.stories` (schema in `supabase/s
   read_time_minutes: number
   tags: string[]
   body: string[]          // one paragraph per array entry
+  cover_image_url: string | null
+  audio_url: string | null  // pre-generated read-aloud narration (Supabase Storage), null until generated
   published_at: timestamptz
 }
 ```
@@ -174,7 +181,7 @@ Implementation: Tailwind transition utilities + `@vueuse/motion` (or CSS keyfram
 3. **Illustrations** — will you supply story illustrations, or should these be AI-generated/stock placeholders for v1?
 4. **Contact form backend** — since there's no CMS/backend planned, how should submissions be handled (e.g. a form service like Formspree, an email API, or just a `mailto:` link)?
 5. **Newsletter** — is this a real subscription (needs an email service like Mailchimp/ConvertKit) or a placeholder for now?
-6. **Read-aloud/audio narration** — nice-to-have for young kids; confirm if in scope for v1 or later.
+6. ~~**Read-aloud/audio narration**~~ — resolved: in scope for v1. Every story gets pre-generated narration audio via a self-hosted Qwen3-TTS model on Hugging Face Spaces; see §8.
 7. **Number of launch stories** — how many stories should be ready at launch, to size the homepage/Stories page properly?
 8. **Domain/deployment target** — e.g. Vercel/Netlify — any preference?
 
@@ -190,3 +197,5 @@ Implementation: Tailwind transition utilities + `@vueuse/motion` (or CSS keyfram
 - **Responsiveness:** mobile-first; category strip and story grid collapse to horizontal scroll / single column on small screens.
 - **AI story authoring:** `/studio` calls the OpenRouter chat completions API (`google/gemma-4-26b-a4b-it:free`, JSON mode) from Nitro server routes (`server/api/studio/generate.post.ts`, `server/api/studio/publish.post.ts`). `OPENROUTER_API_KEY` is read from `.env` via Nuxt `runtimeConfig` (private, server-only — never exposed to the client). Publishing inserts a new row into the Supabase `stories` table.
 - **Database:** Supabase (Postgres) via `@supabase/supabase-js`. `SUPABASE_URL` + `SUPABASE_ANON_KEY` are public (`runtimeConfig.public`, used for read-only queries from Nitro routes, protected by an RLS read policy); `SUPABASE_SERVICE_ROLE_KEY` is private/server-only (`runtimeConfig`, used for writes from `/studio` and the one-time seed route). Schema lives in `supabase/schema.sql`; run it once in the Supabase SQL Editor to create the `stories` table.
+- **Read-aloud narration:** every story's audio is pre-generated (never live on a reader's request) by `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice`, self-hosted on a free-tier Hugging Face Space (Gradio SDK on ZeroGPU — Hugging Face no longer offers free CPU/Docker compute Spaces; source in `huggingface-space/`). `server/utils/tts.ts`'s `generateAndStoreStoryAudio()` calls the Space's `generate` Gradio API endpoint via `@gradio/client`, uploads the resulting WAV to a public Supabase Storage bucket (`story-audio`), and saves the public URL on the story's `audio_url` column. Triggered per-story after `/studio` publish (`server/api/admin/generate-audio.post.ts`) and via a rerunnable batch job for stories missing audio (`server/api/admin/backfill-audio.post.ts`). `HUGGINGFACE_SPACE_URL` (the Space id, e.g. `username/space-name`) and `HUGGINGFACE_API_KEY` (the owner's own Hugging Face access token, used so ZeroGPU usage draws from their personal free daily quota) are private/server-only `runtimeConfig` values. Free-account ZeroGPU quota is 5 minutes of GPU time/day, so batch-narrating many stories at once needs to be spread across several days. The story detail page's "Listen" toggle only renders when `audio_url` is set, so stories pending generation degrade gracefully.
+- **Automated publishing:** `scripts/daily-post.ts` is a standalone Node script (run via `npx tsx`, outside the Nuxt/Nitro context) that picks an unused topic from `shared/utils/topic-pool.ts`, calls the same `generateStoryDraft()`/`publishStoryDraft()` functions `/studio` uses (`shared/utils/story-authoring.ts`, refactored to be framework-agnostic for exactly this reuse), and records the topic in a Supabase `used_topics` table so it's never repeated. Scheduled via a GitHub Actions workflow (`.github/workflows/auto-post.yml`, cron `0 */12 * * *`, i.e. every 12 hours) using repo secrets for `OPENROUTER_API_KEY`/`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` — chosen over hosting-provider cron (e.g. Vercel Cron) because the app isn't deployed anywhere yet, and over a local cron job because it needs to run even when the owner's machine is off.

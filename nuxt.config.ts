@@ -7,6 +7,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     openrouterApiKey: process.env.OPENROUTER_API_KEY,
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    huggingfaceSpaceUrl: process.env.HUGGINGFACE_SPACE_URL,
+    huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY

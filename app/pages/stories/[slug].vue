@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link2 } from '@lucide/vue'
+import { Link2, Play, Pause } from '@lucide/vue'
 import { getCategory } from '~/data/categories'
 import { formatDate, type Story } from '~/data/stories'
 
@@ -35,6 +35,17 @@ const more = computed(() => {
   const pool = sameCategory.length ? sameCategory : list.filter((s) => s.slug !== current.slug)
   return pool.slice(0, 3)
 })
+
+const audioEl = ref<HTMLAudioElement | null>(null)
+const isPlaying = ref(false)
+function toggleListen() {
+  if (!audioEl.value) return
+  if (isPlaying.value) {
+    audioEl.value.pause()
+  } else {
+    audioEl.value.play()
+  }
+}
 
 const shareCopied = ref(false)
 async function share() {
@@ -89,6 +100,25 @@ useSeoMeta({
 
       <div class="mt-4 flex items-center gap-3" v-reveal>
         <FavoriteButton :slug="story.slug" />
+        <template v-if="story.audioUrl">
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-navy shadow-warm transition-transform hover:-translate-y-0.5"
+            @click="toggleListen"
+          >
+            <Pause v-if="isPlaying" class="h-4 w-4" />
+            <Play v-else class="h-4 w-4" />
+            {{ isPlaying ? 'Pause' : 'Listen' }}
+          </button>
+          <audio
+            ref="audioEl"
+            :src="story.audioUrl"
+            class="hidden"
+            @play="isPlaying = true"
+            @pause="isPlaying = false"
+            @ended="isPlaying = false"
+          />
+        </template>
         <button
           type="button"
           class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-navy shadow-warm transition-transform hover:-translate-y-0.5"

@@ -9,6 +9,7 @@ export interface StoryRow {
   tags: string[]
   body: string[]
   cover_image_url: string | null
+  audio_url: string | null
   published_at: string
 }
 
@@ -24,6 +25,7 @@ export function mapStoryRow(row: StoryRow) {
     tags: row.tags ?? [],
     body: row.body ?? [],
     coverImageUrl: row.cover_image_url ?? null,
+    audioUrl: row.audio_url ?? null,
     publishedAt: row.published_at
   }
 }

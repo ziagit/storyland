@@ -13,6 +13,7 @@ export interface Story {
   tags: string[]
   body: string[]
   coverImageUrl: string | null
+  audioUrl: string | null
   publishedAt: string
 }
 

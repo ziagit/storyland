@@ -36,7 +36,7 @@ const socials = [
             </li>
             <li>
               <NuxtLink to="/studio" class="text-ink-muted transition-colors hover:text-coral">
-                Login
+                Studio
               </NuxtLink>
             </li>
           </ul>

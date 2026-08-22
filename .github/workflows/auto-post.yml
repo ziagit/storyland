@@ -1,0 +1,28 @@
+name: Auto-publish story
+
+on:
+  schedule:
+    # Every 12 hours (00:00 and 12:00 UTC). GitHub's scheduler can delay a
+    # run by several minutes under load and disables schedules automatically
+    # after 60 days of repo inactivity — use "Run workflow" below if a run
+    # seems to have been skipped.
+    - cron: '0 */12 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - run: npm run auto-post
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

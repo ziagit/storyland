@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Sparkles, Send, Loader2, Wand2, CircleCheck, CircleAlert, MessageCircle } from '@lucide/vue'
+import { Sparkles, Send, Loader2, Wand2, CircleCheck, CircleAlert, MessageCircle, Volume2 } from '@lucide/vue'
 import { categories } from '~/data/categories'
 
 useSeoMeta({
@@ -49,6 +49,8 @@ const generating = ref(false)
 const publishing = ref(false)
 const error = ref('')
 const publishedSlug = ref('')
+const narrating = ref(false)
+const narrationError = ref('')
 
 const chatLog = ref<HTMLElement | null>(null)
 function scrollChatToBottom() {
@@ -110,10 +112,25 @@ async function publish() {
       body: currentDraft.value
     })
     publishedSlug.value = res.slug
+    generateNarration(res.slug)
   } catch (err: any) {
     error.value = err?.data?.statusMessage || err?.message || 'Publishing failed.'
   } finally {
     publishing.value = false
+  }
+}
+
+async function generateNarration(slug: string) {
+  narrating.value = true
+  narrationError.value = ''
+  try {
+    await $fetch('/api/admin/generate-audio', { method: 'POST', body: { slug } })
+  } catch (err: any) {
+    // Publishing already succeeded — narration can be regenerated later via
+    // the backfill route, so a failure here shouldn't feel like the publish failed.
+    narrationError.value = err?.data?.statusMessage || err?.message || 'Narration generation failed.'
+  } finally {
+    narrating.value = false
   }
 }
 
@@ -124,22 +141,24 @@ function startNewStory() {
   publishedSlug.value = ''
   error.value = ''
   message.value = ''
+  narrating.value = false
+  narrationError.value = ''
 }
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-    <div class="mb-6 text-center">
-      <span class="mb-3 inline-flex items-center gap-2 rounded-full bg-tan px-4 py-1.5 text-sm font-bold text-green">
+  <div class="mx-auto flex h-[calc(100dvh-65px)] max-w-7xl flex-col overflow-hidden px-4 py-4 sm:px-6">
+    <div class="mb-4 shrink-0 text-center">
+      <span class="mb-2 inline-flex items-center gap-2 rounded-full bg-tan px-4 py-1.5 text-sm font-bold text-green">
         <Wand2 class="h-4 w-4" /> Story Studio
       </span>
-      <h1 class="font-heading text-3xl font-extrabold text-navy sm:text-4xl">Write a story with AI</h1>
-      <p class="mt-3 text-ink-muted">Chat on the right, watch the story take shape on the left.</p>
+      <h1 class="font-heading text-2xl font-extrabold text-navy sm:text-3xl">Write a story with AI</h1>
+      <p class="mt-2 text-sm text-ink-muted">Chat on the right, watch the story take shape on the left.</p>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-[1fr_400px]">
+    <div class="grid min-h-0 flex-1 grid-rows-[1fr_1fr] gap-4 overflow-hidden lg:grid-cols-[1fr_400px] lg:grid-rows-1 lg:gap-6">
       <!-- Left: draft preview / published result -->
-      <div class="order-2 min-w-0 lg:order-1">
+      <div class="order-2 min-h-0 min-w-0 overflow-y-auto lg:order-1">
         <div
           v-if="!currentDraft"
           class="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-tan bg-white/50 p-10 text-center"
@@ -170,6 +189,15 @@ function startNewStory() {
           <div v-if="publishedSlug" class="mt-5 flex flex-col items-center gap-3 rounded-3xl bg-green/10 px-6 py-8 text-center">
             <CircleCheck class="h-10 w-10 text-green" />
             <p class="font-bold text-navy">Published!</p>
+            <p v-if="narrating" class="flex items-center gap-1.5 text-xs font-semibold text-ink-muted">
+              <Loader2 class="h-3.5 w-3.5 animate-spin" /> Generating narration…
+            </p>
+            <p v-else-if="narrationError" class="flex items-center gap-1.5 text-xs font-semibold text-coral">
+              <CircleAlert class="h-3.5 w-3.5" /> Narration failed — you can retry it later from the backfill job.
+            </p>
+            <p v-else class="flex items-center gap-1.5 text-xs font-semibold text-green">
+              <Volume2 class="h-3.5 w-3.5" /> Narration ready
+            </p>
             <div class="flex flex-wrap justify-center gap-3">
               <UiButton :to="`/stories/${publishedSlug}`" variant="primary">Read it →</UiButton>
               <UiButton variant="secondary" @click="startNewStory">Write another</UiButton>
@@ -194,14 +222,14 @@ function startNewStory() {
       </div>
 
       <!-- Right: chat panel -->
-      <aside class="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
-        <div class="flex h-[32rem] flex-col rounded-3xl bg-white shadow-warm lg:h-[calc(100vh-8rem)]">
-          <div class="flex items-center gap-2 border-b border-tan/60 px-5 py-4">
+      <aside class="order-1 flex min-h-0 lg:order-2">
+        <div class="flex h-full min-h-0 w-full flex-col rounded-3xl bg-white shadow-warm">
+          <div class="flex shrink-0 items-center gap-2 border-b border-tan/60 px-5 py-4">
             <MessageCircle class="h-5 w-5 text-green" />
             <p class="font-heading font-bold text-navy">Chat with the AI</p>
           </div>
 
-          <div ref="chatLog" class="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          <div ref="chatLog" class="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
             <p v-if="!entries.length" class="text-sm text-ink-muted">
               Give it a topic to start, e.g. "a shy hedgehog who learns to make friends at a new pond".
             </p>
@@ -224,7 +252,7 @@ function startNewStory() {
             </div>
           </div>
 
-          <div class="space-y-2 border-t border-tan/60 p-3">
+          <div class="shrink-0 space-y-2 border-t border-tan/60 p-3">
             <div v-if="!entries.length" class="grid grid-cols-2 gap-2">
               <select
                 v-model="category"
