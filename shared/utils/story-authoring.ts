@@ -76,25 +76,7 @@ Respond with ONLY a JSON object, no commentary, in exactly this shape:
   "body": array of 2-3 short paragraph strings (the story text)
 }`
 
-export async function generateStoryDraft(
-  openrouterApiKey: string | undefined,
-  { topic, category, ageRange, history = [] }: { topic: string; category?: string; ageRange?: string; history?: ChatMessage[] }
-): Promise<{ draft: StoryDraft; history: ChatMessage[] }> {
-  if (!openrouterApiKey) {
-    throw new StoryAuthoringError(500, 'OPENROUTER_API_KEY is not configured.')
-  }
-  if (!topic.trim()) {
-    throw new StoryAuthoringError(400, 'A topic is required.')
-  }
-
-  const trimmedHistory = history.slice(-12)
-  const hint = [category ? `Preferred category: ${category}.` : '', ageRange ? `Preferred age range: ${ageRange}.` : '']
-    .filter(Boolean)
-    .join(' ')
-  const userMessage = hint ? `${topic}\n\n${hint}` : topic
-
-  const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...trimmedHistory, { role: 'user', content: userMessage }]
-
+async function callOpenRouterOnce(openrouterApiKey: string, messages: unknown[]): Promise<string> {
   let response: Response
   try {
     response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -131,19 +113,50 @@ export async function generateStoryDraft(
     throw new StoryAuthoringError(502, 'OpenRouter returned an empty response.')
   }
 
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(rawContent)
-  } catch {
-    throw new StoryAuthoringError(502, 'OpenRouter returned invalid JSON.')
+  return rawContent
+}
+
+export async function generateStoryDraft(
+  openrouterApiKey: string | undefined,
+  { topic, category, ageRange, history = [] }: { topic: string; category?: string; ageRange?: string; history?: ChatMessage[] }
+): Promise<{ draft: StoryDraft; history: ChatMessage[] }> {
+  if (!openrouterApiKey) {
+    throw new StoryAuthoringError(500, 'OPENROUTER_API_KEY is not configured.')
+  }
+  if (!topic.trim()) {
+    throw new StoryAuthoringError(400, 'A topic is required.')
   }
 
-  const draft = sanitizeDraft(parsed)
+  const trimmedHistory = history.slice(-12)
+  const hint = [category ? `Preferred category: ${category}.` : '', ageRange ? `Preferred age range: ${ageRange}.` : '']
+    .filter(Boolean)
+    .join(' ')
+  const userMessage = hint ? `${topic}\n\n${hint}` : topic
 
-  return {
-    draft,
-    history: [...trimmedHistory, { role: 'user', content: userMessage }, { role: 'assistant', content: rawContent }]
+  const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...trimmedHistory, { role: 'user', content: userMessage }]
+
+  // The free model occasionally returns malformed/non-JSON content or an empty
+  // response — observed as a real, transient failure (an identical retry of the
+  // same request succeeded moments later), not a persistent config/auth problem.
+  // One retry absorbs that without surfacing a spurious error to the user/script.
+  const maxAttempts = 2
+  let lastError: unknown
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let rawContent: string
+    try {
+      rawContent = await callOpenRouterOnce(openrouterApiKey, messages)
+      const draft = sanitizeDraft(JSON.parse(rawContent))
+      return {
+        draft,
+        history: [...trimmedHistory, { role: 'user', content: userMessage }, { role: 'assistant', content: rawContent }]
+      }
+    } catch (err) {
+      lastError = err instanceof SyntaxError ? new StoryAuthoringError(502, 'OpenRouter returned invalid JSON.') : err
+      if (attempt < maxAttempts) continue
+    }
   }
+
+  throw lastError
 }
 
 function slugify(title: string): string {
