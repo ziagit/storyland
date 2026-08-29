@@ -48,7 +48,13 @@ export default defineEventHandler(async (event) => {
     const result = await publishStoryDraft(supabase, draft)
     // Never lets a notification failure fail the publish itself — sendNewStoryEmail
     // swallows its own errors (logged, not thrown).
-    await sendNewStoryEmail(useRuntimeConfig().resendApiKey, draft, result.slug, getRequestURL(event).origin)
+    const config = useRuntimeConfig()
+    await sendNewStoryEmail(
+      { user: config.gmailUser, appPassword: config.gmailAppPassword },
+      draft,
+      result.slug,
+      getRequestURL(event).origin
+    )
     return result
   } catch (err) {
     if (err instanceof StoryAuthoringError) {

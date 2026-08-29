@@ -17,7 +17,7 @@ if (existsSync(envPath)) {
   process.loadEnvFile(envPath)
 }
 
-const { OPENROUTER_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, SITE_URL } = process.env
+const { OPENROUTER_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD, SITE_URL } = process.env
 
 if (!OPENROUTER_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error(
@@ -71,7 +71,7 @@ async function main() {
   const { slug } = await publishStoryDraft(supabase, draft)
   console.log(`Published "${draft.title}" -> /stories/${slug}`)
 
-  await sendNewStoryEmail(RESEND_API_KEY, draft, slug, SITE_URL)
+  await sendNewStoryEmail({ user: GMAIL_USER, appPassword: GMAIL_APP_PASSWORD }, draft, slug, SITE_URL)
 
   const topicToRecord = picked.recordAs ?? draft.title
   const { error: insertError } = await supabase.from('used_topics').insert({ topic: topicToRecord })
