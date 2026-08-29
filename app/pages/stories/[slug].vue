@@ -6,12 +6,25 @@ import { formatDate, type Story } from '~/data/stories'
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
 
-const { data: story } = await useFetch<Story>(() => `/api/stories/${slug.value}`)
+const { accessToken } = useAuth()
+
+const { data: story, refresh: refreshStory } = await useFetch<Story>(() => `/api/stories/${slug.value}`, {
+  headers: () => (accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {})
+})
 const { data: allStories } = await useFetch<Story[]>('/api/stories')
 
 if (!story.value) {
   throw createError({ statusCode: 404, statusMessage: 'Story not found' })
 }
+
+// The initial (possibly SSR'd) fetch never has the browser's Supabase session, so a
+// premium story renders locked at first even for a paying reader — re-fetch with the
+// auth header once the session hydrates client-side to unlock it.
+watch(accessToken, () => {
+  if (story.value?.locked) {
+    refreshStory()
+  }
+})
 
 const category = computed(() => getCategory(story.value!.category))
 
@@ -156,7 +169,9 @@ useSeoMeta({
         <p v-for="(paragraph, i) in story.body" :key="i">{{ paragraph }}</p>
       </div>
 
-      <div class="mt-8 flex flex-wrap gap-2" v-reveal>
+      <PaywallCard v-if="story.locked" :paragraphs-remaining="(story.lockedBodyCount ?? 1) - story.body.length" v-reveal />
+
+      <div v-if="!story.locked" class="mt-8 flex flex-wrap gap-2" v-reveal>
         <TagPill v-for="tag in story.tags" :key="tag" :label="tag" />
       </div>
     </div>

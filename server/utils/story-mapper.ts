@@ -7,10 +7,11 @@ export interface StoryRow {
   age_range: string
   read_time_minutes: number
   tags: string[]
-  body: string[]
+  body?: string[]
   cover_image_url: string | null
   audio_url: string | null
   published_at: string
+  is_premium: boolean
 }
 
 export function mapStoryRow(row: StoryRow) {
@@ -26,6 +27,8 @@ export function mapStoryRow(row: StoryRow) {
     body: row.body ?? [],
     coverImageUrl: row.cover_image_url ?? null,
     audioUrl: row.audio_url ?? null,
-    publishedAt: row.published_at
+    publishedAt: row.published_at,
+    isPremium: row.is_premium ?? false,
+    locked: false
   }
 }

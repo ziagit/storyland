@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Lock } from '@lucide/vue'
 import { getCategory } from '~/data/categories'
 import type { Story } from '~/data/stories'
 
@@ -16,7 +17,7 @@ const ageLabel: Record<string, string> = {
 <template>
   <NuxtLink
     :to="`/stories/${story.slug}`"
-    class="group flex flex-col overflow-hidden rounded-3xl bg-white p-3 shadow-warm transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-warm-lg"
+    class="group flex h-full flex-col overflow-hidden rounded-3xl bg-white p-3 shadow-warm transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-warm-lg"
   >
     <div class="relative">
       <div class="transition-transform duration-500 ease-out group-hover:scale-[1.04]">
@@ -24,6 +25,14 @@ const ageLabel: Record<string, string> = {
       </div>
       <div class="absolute right-2 top-2">
         <FavoriteButton :slug="story.slug" size="sm" />
+      </div>
+      <div
+        v-if="story.isPremium"
+        class="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-navy/80 text-white"
+        aria-label="Premium story"
+        title="Premium story"
+      >
+        <Lock class="h-3.5 w-3.5" />
       </div>
     </div>
 
