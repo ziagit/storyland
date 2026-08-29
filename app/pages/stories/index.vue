@@ -51,8 +51,8 @@ watch([search, category, age], () => {
         <FilterBar v-model:category="category" v-model:age="age" />
       </div>
 
-      <div v-if="visibleStories.length" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div v-for="story in visibleStories" :key="story.slug" v-reveal>
+      <div v-if="visibleStories.length" class="grid items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div v-for="story in visibleStories" :key="story.slug" class="h-full" v-reveal>
           <StoryCard :story="story" />
         </div>
       </div>

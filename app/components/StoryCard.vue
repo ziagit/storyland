@@ -17,7 +17,7 @@ const ageLabel: Record<string, string> = {
 <template>
   <NuxtLink
     :to="`/stories/${story.slug}`"
-    class="group flex flex-col overflow-hidden rounded-3xl bg-white p-3 shadow-warm transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-warm-lg"
+    class="group flex h-full flex-col overflow-hidden rounded-3xl bg-white p-3 shadow-warm transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-warm-lg"
   >
     <div class="relative">
       <div class="transition-transform duration-500 ease-out group-hover:scale-[1.04]">
