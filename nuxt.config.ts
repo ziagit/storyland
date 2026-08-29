@@ -13,6 +13,7 @@ export default defineNuxtConfig({
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     gmailUser: process.env.GMAIL_USER,
     gmailAppPassword: process.env.GMAIL_APP_PASSWORD,
+    notifyEmails: process.env.NOTIFY_EMAILS,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,

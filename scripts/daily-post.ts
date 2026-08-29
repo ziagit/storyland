@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { generateStoryDraft, publishStoryDraft, StoryAuthoringError } from '../shared/utils/story-authoring'
-import { sendNewStoryEmail } from '../shared/utils/notify'
+import { sendNewStoryEmail, parseRecipients } from '../shared/utils/notify'
 import { TOPIC_POOL } from '../shared/utils/topic-pool'
 
 const envPath = fileURLToPath(new URL('../.env', import.meta.url))
@@ -17,7 +17,7 @@ if (existsSync(envPath)) {
   process.loadEnvFile(envPath)
 }
 
-const { OPENROUTER_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD, SITE_URL } = process.env
+const { OPENROUTER_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD, SITE_URL, NOTIFY_EMAILS } = process.env
 
 if (!OPENROUTER_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error(
@@ -71,7 +71,7 @@ async function main() {
   const { slug } = await publishStoryDraft(supabase, draft)
   console.log(`Published "${draft.title}" -> /stories/${slug}`)
 
-  await sendNewStoryEmail({ user: GMAIL_USER, appPassword: GMAIL_APP_PASSWORD }, draft, slug, SITE_URL)
+  await sendNewStoryEmail({ user: GMAIL_USER, appPassword: GMAIL_APP_PASSWORD }, draft, slug, SITE_URL, parseRecipients(NOTIFY_EMAILS))
 
   const topicToRecord = picked.recordAs ?? draft.title
   const { error: insertError } = await supabase.from('used_topics').insert({ topic: topicToRecord })

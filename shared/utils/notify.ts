@@ -5,12 +5,23 @@ import nodemailer from 'nodemailer'
 import { buildCoverImageUrl } from '../../server/utils/cover-image'
 import type { StoryDraft } from './story-authoring'
 
-const OWNER_EMAIL = 'zia.flutter@gmail.com'
+const DEFAULT_RECIPIENTS = ['zia.flutter@gmail.com']
 const DEFAULT_SITE_URL = 'https://storyland-sigma.vercel.app'
 
 export interface GmailCredentials {
   user: string | undefined
   appPassword: string | undefined
+}
+
+/** Parses the comma-separated NOTIFY_EMAILS env var into a list, or undefined if unset
+ * (letting sendNewStoryEmail fall back to its own default recipient). */
+export function parseRecipients(notifyEmails: string | undefined): string[] | undefined {
+  if (!notifyEmails) return undefined
+  const emails = notifyEmails
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean)
+  return emails.length ? emails : undefined
 }
 
 function escapeHtml(input: string): string {
@@ -32,7 +43,8 @@ export async function sendNewStoryEmail(
   credentials: GmailCredentials,
   draft: StoryDraft,
   slug: string,
-  siteUrl: string = DEFAULT_SITE_URL
+  siteUrl: string = DEFAULT_SITE_URL,
+  recipients: string[] = DEFAULT_RECIPIENTS
 ): Promise<void> {
   if (!credentials.user || !credentials.appPassword) {
     console.error('GMAIL_USER/GMAIL_APP_PASSWORD are not configured — skipping new-story email notification.')
@@ -59,7 +71,7 @@ export async function sendNewStoryEmail(
 
     await transporter.sendMail({
       from: `Kidstory <${credentials.user}>`,
-      to: OWNER_EMAIL,
+      to: recipients,
       subject: `New story published: ${draft.title}`,
       html: `
         <img
