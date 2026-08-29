@@ -11,6 +11,7 @@ export default defineNuxtConfig({
     huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY,
     stripeSecretKey: process.env.STRIPE_SECRET_KEY,
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    resendApiKey: process.env.RESEND_API_KEY,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,

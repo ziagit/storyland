@@ -1,4 +1,5 @@
 import { CATEGORY_SLUGS, AGE_RANGES, publishStoryDraft, StoryAuthoringError, type StoryDraft } from '../../../shared/utils/story-authoring'
+import { sendNewStoryEmail } from '../../../shared/utils/notify'
 
 interface PublishBody {
   title?: string
@@ -44,7 +45,11 @@ export default defineEventHandler(async (event) => {
 
   const supabase = useSupabaseAdmin()
   try {
-    return await publishStoryDraft(supabase, draft)
+    const result = await publishStoryDraft(supabase, draft)
+    // Never lets a notification failure fail the publish itself — sendNewStoryEmail
+    // swallows its own errors (logged, not thrown).
+    await sendNewStoryEmail(useRuntimeConfig().resendApiKey, draft, result.slug, getRequestURL(event).origin)
+    return result
   } catch (err) {
     if (err instanceof StoryAuthoringError) {
       throw createError({ statusCode: err.statusCode, statusMessage: err.message })

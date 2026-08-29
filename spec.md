@@ -109,11 +109,18 @@ Modeled closely on the reference layout:
 - Chat-style flow: enter a topic (+ optional category/age hint) → the AI drafts a story → owner can ask for changes in follow-up messages → "Publish" inserts the finished story as a new row in the Supabase `stories` table with a generated slug.
 - Server-side only: the OpenRouter API key and the Supabase service-role key both live in `runtimeConfig` (never sent to the client); a Nitro server route calls OpenRouter and another inserts the accepted draft into Supabase.
 - Works on read-only/serverless production hosts, since publishing is a database write rather than a filesystem write.
+- On successful publish, a copy of the new story is emailed to the site owner — see "New-story email notification" below.
 
 ### 3.8 Automated publishing
 - A new story is generated and published unattended every 12 hours, on top of (not replacing) manual `/studio` use — see §8 for the mechanism.
 - Topics are drawn from a curated seed pool (`shared/utils/topic-pool.ts`, ~60 premises spread across the six categories) without repeats, tracked via a Supabase `used_topics` table; once the pool is exhausted the script asks the model to invent a fresh topic distinct from everything used so far.
 - Automated posts do not trigger read-aloud narration generation (unlike `/studio` publish) — narration remains manual/backfill-only, since the Hugging Face ZeroGPU quota is small and shared with the existing backfill job (see §8).
+- Same as `/studio`, a successful automated post also emails the owner a copy of the new story.
+
+### 3.9 New-story email notification
+- Every time a story is published by AI (`/studio` publish or the every-12-hours automated job), a copy is emailed to the owner (`zia.flutter@gmail.com`) — title, excerpt, category/age/read-time, the full story text, and a link to the live story page.
+- Sent via [Resend](https://resend.com) (`shared/utils/notify.ts`'s `sendNewStoryEmail()`, shared between the Nitro `/studio` route and the standalone auto-post script, same pattern as `story-authoring.ts`). Uses Resend's shared `onboarding@resend.dev` sender, which requires no domain verification but can only deliver to the email address the Resend account itself was signed up with.
+- Never blocks or fails a publish — a notification failure is logged, not thrown.
 
 ---
 
@@ -221,6 +228,7 @@ Implementation: Tailwind transition utilities + `@vueuse/motion` (or CSS keyfram
 - **Read-aloud narration:** every story's audio is pre-generated (never live on a reader's request) by `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice`, self-hosted on a free-tier Hugging Face Space (Gradio SDK on ZeroGPU — Hugging Face no longer offers free CPU/Docker compute Spaces; source in `huggingface-space/`). `server/utils/tts.ts`'s `generateAndStoreStoryAudio()` calls the Space's `generate` Gradio API endpoint via `@gradio/client`, uploads the resulting WAV to a public Supabase Storage bucket (`story-audio`), and saves the public URL on the story's `audio_url` column. Triggered per-story after `/studio` publish (`server/api/admin/generate-audio.post.ts`) and via a rerunnable batch job for stories missing audio (`server/api/admin/backfill-audio.post.ts`). `HUGGINGFACE_SPACE_URL` (the Space id, e.g. `username/space-name`) and `HUGGINGFACE_API_KEY` (the owner's own Hugging Face access token, used so ZeroGPU usage draws from their personal free daily quota) are private/server-only `runtimeConfig` values. Free-account ZeroGPU quota is 5 minutes of GPU time/day, so batch-narrating many stories at once needs to be spread across several days. The story detail page's "Listen" toggle only renders when `audio_url` is set, so stories pending generation degrade gracefully.
 - **Automated publishing:** `scripts/daily-post.ts` is a standalone Node script (run via `npx tsx`, outside the Nuxt/Nitro context) that picks an unused topic from `shared/utils/topic-pool.ts`, calls the same `generateStoryDraft()`/`publishStoryDraft()` functions `/studio` uses (`shared/utils/story-authoring.ts`, refactored to be framework-agnostic for exactly this reuse), and records the topic in a Supabase `used_topics` table so it's never repeated. Scheduled via a GitHub Actions workflow (`.github/workflows/auto-post.yml`, cron `0 */12 * * *`, i.e. every 12 hours) using repo secrets for `OPENROUTER_API_KEY`/`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` — chosen over hosting-provider cron (e.g. Vercel Cron) because the app isn't deployed anywhere yet, and over a local cron job because it needs to run even when the owner's machine is off.
 - **Payments & auth:** Stripe (`stripe` npm package server-side, `@stripe/stripe-js` client-side) for a custom-branded embedded checkout, Supabase Auth (passwordless email magic link) for reader identity — see §9 for the full flow. `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are private/server-only `runtimeConfig` values; `STRIPE_PUBLISHABLE_KEY` is public (needed client-side to load Stripe.js and mount the Payment Element).
+- **New-story email notifications:** `resend` npm package, `RESEND_API_KEY` private/server-only `runtimeConfig` value (and a plain `process.env` read in `scripts/daily-post.ts`, same pattern as its other env vars). See §3.9.
 
 ---
 
