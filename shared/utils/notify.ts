@@ -2,6 +2,7 @@
 // /studio publish route and from the standalone scripts/daily-post.ts script, which
 // runs outside the Nuxt/Nitro context.
 import nodemailer from 'nodemailer'
+import { buildCoverImageUrl } from '../../server/utils/cover-image'
 import type { StoryDraft } from './story-authoring'
 
 const OWNER_EMAIL = 'zia.flutter@gmail.com'
@@ -51,12 +52,22 @@ export async function sendNewStoryEmail(
     })
 
     const bodyHtml = draft.body.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n')
+    // Same deterministic formula publishStoryDraft() uses to compute cover_image_url —
+    // recomputing it here (rather than threading the value through) keeps this
+    // notification self-contained with the same three inputs it already has.
+    const coverImageUrl = buildCoverImageUrl({ title: draft.title, category: draft.category, slug })
 
     await transporter.sendMail({
       from: `Kidstory <${credentials.user}>`,
       to: OWNER_EMAIL,
       subject: `New story published: ${draft.title}`,
       html: `
+        <img
+          src="${coverImageUrl}"
+          alt="${escapeHtml(draft.title)}"
+          width="600"
+          style="display:block;width:100%;max-width:600px;height:auto;border-radius:16px;margin-bottom:16px;"
+        />
         <h2 style="margin-bottom:4px;">${escapeHtml(draft.title)} ${escapeHtml(draft.emoji)}</h2>
         <p style="color:#5B5347;"><em>${escapeHtml(draft.excerpt)}</em></p>
         <p style="font-size:13px;color:#5B5347;">
