@@ -1,5 +1,6 @@
 import { CATEGORY_SLUGS, AGE_RANGES, publishStoryDraft, StoryAuthoringError, type StoryDraft } from '../../../shared/utils/story-authoring'
 import { sendNewStoryEmail, parseRecipients } from '../../../shared/utils/notify'
+import { postStoryToFacebook } from '../../../shared/utils/facebook'
 
 interface PublishBody {
   title?: string
@@ -49,12 +50,19 @@ export default defineEventHandler(async (event) => {
     // Never lets a notification failure fail the publish itself — sendNewStoryEmail
     // swallows its own errors (logged, not thrown).
     const config = useRuntimeConfig()
+    const siteUrl = getRequestURL(event).origin
     await sendNewStoryEmail(
       { user: config.gmailUser, appPassword: config.gmailAppPassword },
       draft,
       result.slug,
-      getRequestURL(event).origin,
+      siteUrl,
       parseRecipients(config.notifyEmails)
+    )
+    await postStoryToFacebook(
+      { pageId: config.facebookPageId, pageAccessToken: config.facebookPageAccessToken },
+      draft,
+      result.slug,
+      siteUrl
     )
     return result
   } catch (err) {

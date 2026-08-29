@@ -80,7 +80,8 @@ useSeoMeta({
   title: () => story.value!.title,
   description: () => story.value!.excerpt,
   ogTitle: () => story.value!.title,
-  ogDescription: () => story.value!.excerpt
+  ogDescription: () => story.value!.excerpt,
+  ogImage: () => story.value!.coverImageUrl ?? undefined
 })
 </script>
 

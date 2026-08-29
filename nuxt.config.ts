@@ -14,6 +14,8 @@ export default defineNuxtConfig({
     gmailUser: process.env.GMAIL_USER,
     gmailAppPassword: process.env.GMAIL_APP_PASSWORD,
     notifyEmails: process.env.NOTIFY_EMAILS,
+    facebookPageId: process.env.FACEBOOK_PAGE_ID,
+    facebookPageAccessToken: process.env.FACEBOOK_PAGE_ACCESS_TOKEN,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
