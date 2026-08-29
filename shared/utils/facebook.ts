@@ -1,7 +1,16 @@
 // Framework-agnostic like shared/utils/story-authoring.ts and notify.ts — called from
 // the Nitro /studio publish route and from the standalone scripts/daily-post.ts script,
 // which runs outside the Nuxt/Nitro context.
+import dns from 'node:dns'
 import type { StoryDraft } from './story-authoring'
+
+// Same class of bug as the Gmail SMTP fix in notify.ts: this machine's DNS resolves
+// graph.facebook.com to an IPv6 address first, but IPv6 isn't actually routable here,
+// so fetch() failed with ENETUNREACH instead of falling back to IPv4. Node's fetch
+// (undici) doesn't expose a per-call `family` option the way nodemailer does, but it
+// does go through dns.lookup() under the hood, so switching the default resolution
+// order fixes it globally for this process.
+dns.setDefaultResultOrder('ipv4first')
 
 const GRAPH_API_VERSION = 'v21.0'
 const DEFAULT_SITE_URL = 'https://storyland-sigma.vercel.app'
