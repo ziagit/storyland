@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Search, Menu, X } from '@lucide/vue'
+import { Search, Menu, X, User } from '@lucide/vue'
 
 const mobileOpen = ref(false)
 const route = useRoute()
+const { user, hasAccess } = useAuth()
 
 const links = [
   { label: 'Home', to: '/' },
@@ -46,8 +47,15 @@ watch(
         >
           <Search class="h-5 w-5" />
         </NuxtLink>
-        <UiButton to="/stories" variant="primary" class="!px-5 !py-2 text-sm">
-          Subscribe
+        <NuxtLink
+          to="/account"
+          :aria-label="user ? 'Your account' : 'Sign in'"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-navy transition-colors hover:bg-tan"
+        >
+          <User class="h-5 w-5" />
+        </NuxtLink>
+        <UiButton v-if="!hasAccess" to="/account" variant="primary" class="!px-5 !py-2 text-sm">
+          Unlock All Stories
         </UiButton>
       </div>
 
@@ -80,8 +88,11 @@ watch(
         >
           {{ link.label }}
         </NuxtLink>
-        <UiButton to="/stories" variant="primary" class="mt-4 w-full justify-center">
-          Subscribe
+        <NuxtLink to="/account" class="block border-b border-tan/50 py-3 font-body font-bold text-navy">
+          {{ user ? 'Your Account' : 'Sign In' }}
+        </NuxtLink>
+        <UiButton v-if="!hasAccess" to="/account" variant="primary" class="mt-4 w-full justify-center">
+          Unlock All Stories
         </UiButton>
       </nav>
     </Transition>

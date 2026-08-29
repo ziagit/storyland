@@ -9,9 +9,12 @@ export default defineNuxtConfig({
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     huggingfaceSpaceUrl: process.env.HUGGINGFACE_SPACE_URL,
     huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY,
+    stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
-      supabaseAnonKey: process.env.SUPABASE_ANON_KEY
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+      stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY
     }
   },
   vite: {

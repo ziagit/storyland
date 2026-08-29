@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Lock } from '@lucide/vue'
 import { getCategory } from '~/data/categories'
 import type { Story } from '~/data/stories'
 
@@ -24,6 +25,14 @@ const ageLabel: Record<string, string> = {
       </div>
       <div class="absolute right-2 top-2">
         <FavoriteButton :slug="story.slug" size="sm" />
+      </div>
+      <div
+        v-if="story.isPremium"
+        class="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-navy/80 text-white"
+        aria-label="Premium story"
+        title="Premium story"
+      >
+        <Lock class="h-3.5 w-3.5" />
       </div>
     </div>
 
