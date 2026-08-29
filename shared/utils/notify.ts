@@ -40,7 +40,13 @@ export async function sendNewStoryEmail(
 
   try {
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      // Explicit host/port/family instead of the `service: 'gmail'` shorthand — that
+      // shorthand attempted an IPv6 connection first and failed with ENETUNREACH in
+      // testing; forcing IPv4 connects reliably instead.
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      family: 4,
       auth: { user: credentials.user, pass: credentials.appPassword }
     })
 
