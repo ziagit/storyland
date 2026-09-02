@@ -1,13 +1,11 @@
-name: Auto-publish story
+name: Auto-publish story (manual fallback)
 
+# Primary scheduling is Vercel Cron (vercel.json → /api/cron/daily-post), which
+# runs on the deployment itself and covers email + Facebook + Instagram. This
+# workflow is a manual fallback: trigger it from the Actions tab ("Run workflow")
+# if a Vercel run is missed, or to publish a story that also gets a YouTube video
+# (which the Vercel route skips — ffmpeg exceeds the serverless limits).
 on:
-  schedule:
-    # Once a day at 02:00 UTC = 07:00 Asia/Karachi (PKT, UTC+5) — a new story
-    # goes live each morning. GitHub's scheduler can delay a run by several
-    # minutes under load and disables schedules automatically after 60 days of
-    # repo inactivity — use "Run workflow" below if a run seems to have been
-    # skipped.
-    - cron: '0 2 * * *'
   workflow_dispatch: {}
 
 jobs:

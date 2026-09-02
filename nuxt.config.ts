@@ -20,10 +20,24 @@ export default defineNuxtConfig({
     youtubeClientId: process.env.YOUTUBE_CLIENT_ID,
     youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET,
     youtubeRefreshToken: process.env.YOUTUBE_REFRESH_TOKEN,
+    // Shared secret between Vercel Cron and /api/cron/daily-post — Vercel sends it
+    // as `Authorization: Bearer ${CRON_SECRET}`; the route rejects anything else.
+    cronSecret: process.env.CRON_SECRET,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
       stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY
+    }
+  },
+  nitro: {
+    // The daily-post cron route runs an LLM call + several API posts back to
+    // back; the default 10s Vercel function limit isn't enough. 60s is the
+    // ceiling on Vercel's Hobby plan. Applies to all server routes (a higher
+    // ceiling doesn't slow down routes that finish fast).
+    vercel: {
+      functions: {
+        maxDuration: 60
+      }
     }
   },
   vite: {
