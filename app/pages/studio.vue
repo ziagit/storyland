@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Sparkles, Send, Loader2, Wand2, CircleCheck, CircleAlert, MessageCircle, Volume2 } from '@lucide/vue'
+import { Sparkles, Send, Loader2, Wand2, CircleCheck, MessageCircle } from '@lucide/vue'
 import { categories } from '~/data/categories'
 
 useSeoMeta({
@@ -49,8 +49,6 @@ const generating = ref(false)
 const publishing = ref(false)
 const error = ref('')
 const publishedSlug = ref('')
-const narrating = ref(false)
-const narrationError = ref('')
 
 const chatLog = ref<HTMLElement | null>(null)
 function scrollChatToBottom() {
@@ -112,25 +110,10 @@ async function publish() {
       body: currentDraft.value
     })
     publishedSlug.value = res.slug
-    generateNarration(res.slug)
   } catch (err: any) {
     error.value = err?.data?.statusMessage || err?.message || 'Publishing failed.'
   } finally {
     publishing.value = false
-  }
-}
-
-async function generateNarration(slug: string) {
-  narrating.value = true
-  narrationError.value = ''
-  try {
-    await $fetch('/api/admin/generate-audio', { method: 'POST', body: { slug } })
-  } catch (err: any) {
-    // Publishing already succeeded — narration can be regenerated later via
-    // the backfill route, so a failure here shouldn't feel like the publish failed.
-    narrationError.value = err?.data?.statusMessage || err?.message || 'Narration generation failed.'
-  } finally {
-    narrating.value = false
   }
 }
 
@@ -141,8 +124,6 @@ function startNewStory() {
   publishedSlug.value = ''
   error.value = ''
   message.value = ''
-  narrating.value = false
-  narrationError.value = ''
 }
 </script>
 
@@ -189,15 +170,6 @@ function startNewStory() {
           <div v-if="publishedSlug" class="mt-5 flex flex-col items-center gap-3 rounded-3xl bg-green/10 px-6 py-8 text-center">
             <CircleCheck class="h-10 w-10 text-green" />
             <p class="font-bold text-navy">Published!</p>
-            <p v-if="narrating" class="flex items-center gap-1.5 text-xs font-semibold text-ink-muted">
-              <Loader2 class="h-3.5 w-3.5 animate-spin" /> Generating narration…
-            </p>
-            <p v-else-if="narrationError" class="flex items-center gap-1.5 text-xs font-semibold text-coral">
-              <CircleAlert class="h-3.5 w-3.5" /> Narration failed — you can retry it later from the backfill job.
-            </p>
-            <p v-else class="flex items-center gap-1.5 text-xs font-semibold text-green">
-              <Volume2 class="h-3.5 w-3.5" /> Narration ready
-            </p>
             <div class="flex flex-wrap justify-center gap-3">
               <UiButton :to="`/stories/${publishedSlug}`" variant="primary">Read it →</UiButton>
               <UiButton variant="secondary" @click="startNewStory">Write another</UiButton>

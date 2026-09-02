@@ -1,6 +1,8 @@
 import { CATEGORY_SLUGS, AGE_RANGES, publishStoryDraft, StoryAuthoringError, type StoryDraft } from '../../../shared/utils/story-authoring'
 import { sendNewStoryEmail, parseRecipients } from '../../../shared/utils/notify'
 import { postStoryToFacebook } from '../../../shared/utils/facebook'
+import { postStoryToInstagram } from '../../../shared/utils/instagram'
+import { postStoryToYouTube } from '../../../shared/utils/youtube'
 
 interface PublishBody {
   title?: string
@@ -50,7 +52,12 @@ export default defineEventHandler(async (event) => {
     // Never lets a notification failure fail the publish itself — sendNewStoryEmail
     // swallows its own errors (logged, not thrown).
     const config = useRuntimeConfig()
-    const siteUrl = getRequestURL(event).origin
+    // Prefer an explicit SITE_URL (the deployed, publicly-reachable origin) over the
+    // request origin: when /studio runs on localhost, getRequestURL() yields
+    // http://localhost:3000, which Facebook can't fetch to build a link preview
+    // ("The url you supplied is invalid") and which makes for useless email links too.
+    // Stories live in the shared Supabase DB, so the deployed URL resolves either way.
+    const siteUrl = config.siteUrl || getRequestURL(event).origin
     await sendNewStoryEmail(
       { user: config.gmailUser, appPassword: config.gmailAppPassword },
       draft,
@@ -60,6 +67,22 @@ export default defineEventHandler(async (event) => {
     )
     await postStoryToFacebook(
       { pageId: config.facebookPageId, pageAccessToken: config.facebookPageAccessToken },
+      draft,
+      result.slug,
+      siteUrl
+    )
+    await postStoryToInstagram(
+      { accountId: config.instagramAccountId, accessToken: config.instagramAccessToken },
+      draft,
+      result.slug,
+      siteUrl
+    )
+    await postStoryToYouTube(
+      {
+        clientId: config.youtubeClientId,
+        clientSecret: config.youtubeClientSecret,
+        refreshToken: config.youtubeRefreshToken
+      },
       draft,
       result.slug,
       siteUrl

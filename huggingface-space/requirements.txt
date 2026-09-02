@@ -1,6 +1,0 @@
-gradio>=4.0
-spaces
-qwen-tts
-torch>=2.8,<3
-soundfile==0.12.1
-numpy==1.26.4

@@ -5,7 +5,7 @@ export default defineEventHandler(async () => {
   // anyone browsing /stories, regardless of whether they've paid.
   const { data, error } = await supabase
     .from('stories')
-    .select('slug, title, emoji, excerpt, category, age_range, read_time_minutes, tags, cover_image_url, audio_url, published_at, is_premium')
+    .select('slug, title, emoji, excerpt, category, age_range, read_time_minutes, tags, cover_image_url, published_at, is_premium')
     .order('published_at', { ascending: false })
 
   if (error) {

@@ -49,16 +49,74 @@ const more = computed(() => {
   return pool.slice(0, 3)
 })
 
-const audioEl = ref<HTMLAudioElement | null>(null)
+// Read-aloud narration uses the browser's built-in speech engine (Web Speech API) —
+// no pre-generated audio, no server, no cost. Voice quality depends on the visitor's
+// device (very good on iOS/macOS, decent on Android/Chrome, plainer on Linux).
+const ttsSupported = ref(false)
 const isPlaying = ref(false)
-function toggleListen() {
-  if (!audioEl.value) return
-  if (isPlaying.value) {
-    audioEl.value.pause()
-  } else {
-    audioEl.value.play()
+let keepAlive: ReturnType<typeof setInterval> | null = null
+
+function stopKeepAlive() {
+  if (keepAlive) {
+    clearInterval(keepAlive)
+    keepAlive = null
   }
 }
+
+function stopNarration() {
+  stopKeepAlive()
+  if (ttsSupported.value) window.speechSynthesis.cancel()
+  isPlaying.value = false
+}
+
+function toggleListen() {
+  if (!ttsSupported.value) return
+  const synth = window.speechSynthesis
+
+  if (synth.speaking && !synth.paused) {
+    synth.pause()
+    isPlaying.value = false
+    return
+  }
+  if (synth.paused) {
+    synth.resume()
+    isPlaying.value = true
+    return
+  }
+
+  // Fresh start — queue one utterance per paragraph so a failure or a stop only
+  // affects the current chunk, and Chrome's ~15s cutoff bug is less likely to bite.
+  const paragraphs = (story.value?.body ?? []).filter((p) => p.trim().length)
+  if (!paragraphs.length) return
+
+  synth.cancel()
+  paragraphs.forEach((para, i) => {
+    const u = new SpeechSynthesisUtterance(para)
+    u.lang = 'en-US'
+    u.rate = 0.95
+    if (i === paragraphs.length - 1) {
+      u.onend = () => stopNarration()
+    }
+    u.onerror = () => stopNarration()
+    synth.speak(u)
+  })
+  isPlaying.value = true
+
+  // Chrome stops long synthesis after ~15s unless nudged; resume() is a no-op when
+  // not paused, so this is safe to fire on an interval while we're playing.
+  stopKeepAlive()
+  keepAlive = setInterval(() => {
+    if (synth.speaking && !synth.paused) synth.resume()
+    else if (!synth.speaking) stopKeepAlive()
+  }, 10000)
+}
+
+onMounted(() => {
+  ttsSupported.value = typeof window !== 'undefined' && 'speechSynthesis' in window
+})
+onBeforeUnmount(stopNarration)
+// Navigating between two story pages reuses this component — reset narration.
+watch(slug, stopNarration)
 
 const shareCopied = ref(false)
 async function share() {
@@ -114,25 +172,16 @@ useSeoMeta({
 
       <div class="mt-4 flex items-center gap-3" v-reveal>
         <FavoriteButton :slug="story.slug" />
-        <template v-if="story.audioUrl">
-          <button
-            type="button"
-            class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-navy shadow-warm transition-transform hover:-translate-y-0.5"
-            @click="toggleListen"
-          >
-            <Pause v-if="isPlaying" class="h-4 w-4" />
-            <Play v-else class="h-4 w-4" />
-            {{ isPlaying ? 'Pause' : 'Listen' }}
-          </button>
-          <audio
-            ref="audioEl"
-            :src="story.audioUrl"
-            class="hidden"
-            @play="isPlaying = true"
-            @pause="isPlaying = false"
-            @ended="isPlaying = false"
-          />
-        </template>
+        <button
+          v-if="ttsSupported"
+          type="button"
+          class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-navy shadow-warm transition-transform hover:-translate-y-0.5"
+          @click="toggleListen"
+        >
+          <Pause v-if="isPlaying" class="h-4 w-4" />
+          <Play v-else class="h-4 w-4" />
+          {{ isPlaying ? 'Pause' : 'Listen' }}
+        </button>
         <button
           type="button"
           class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-navy shadow-warm transition-transform hover:-translate-y-0.5"

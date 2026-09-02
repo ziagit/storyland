@@ -13,7 +13,6 @@ export interface Story {
   tags: string[]
   body: string[]
   coverImageUrl: string | null
-  audioUrl: string | null
   publishedAt: string
   isPremium: boolean
   /** True when the API withheld the full body because the reader hasn't unlocked this premium story. */

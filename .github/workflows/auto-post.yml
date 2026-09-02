@@ -2,11 +2,12 @@ name: Auto-publish story
 
 on:
   schedule:
-    # Every 12 hours (00:00 and 12:00 UTC). GitHub's scheduler can delay a
-    # run by several minutes under load and disables schedules automatically
-    # after 60 days of repo inactivity — use "Run workflow" below if a run
-    # seems to have been skipped.
-    - cron: '0 */12 * * *'
+    # Once a day at 02:00 UTC = 07:00 Asia/Karachi (PKT, UTC+5) — a new story
+    # goes live each morning. GitHub's scheduler can delay a run by several
+    # minutes under load and disables schedules automatically after 60 days of
+    # repo inactivity — use "Run workflow" below if a run seems to have been
+    # skipped.
+    - cron: '0 2 * * *'
   workflow_dispatch: {}
 
 jobs:
@@ -31,3 +32,8 @@ jobs:
           NOTIFY_EMAILS: ${{ secrets.NOTIFY_EMAILS }}
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}

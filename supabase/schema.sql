@@ -12,13 +12,8 @@ create table if not exists public.stories (
   tags text[] not null default '{}',
   body text[] not null,
   cover_image_url text,
-  audio_url text,
   published_at timestamptz not null default now()
 );
-
--- Added after the initial launch: cached URL of the pre-generated read-aloud
--- narration for this story (see server/utils/tts.ts). Null until generated.
-alter table public.stories add column if not exists audio_url text;
 
 create index if not exists stories_published_at_idx on public.stories (published_at desc);
 create index if not exists stories_category_idx on public.stories (category);

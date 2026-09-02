@@ -11,7 +11,6 @@
     "auto-post": "tsx scripts/daily-post.ts"
   },
   "dependencies": {
-    "@gradio/client": "^2.5.0",
     "@lucide/vue": "^1.31.0",
     "@stripe/stripe-js": "^9.14.0",
     "@supabase/supabase-js": "^2.109.0",
