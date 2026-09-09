@@ -292,6 +292,11 @@ stories rather than the site's read-only public surface.
 - **Derived fields on create.** Slug (same `slugify()` rule, `-2`/`-3`… on collision), cover
   image URL (a Python port of the Pollinations formula in §8), and `published_at` are derived
   when omitted; new stories default to `is_premium = true`, per §9.
+- **`GET /distance` (utility, unrelated to stories).** Returns the driving distance and
+  duration between two free-text addresses, geocoded with Nominatim and routed with OSRM
+  (both free and keyless). Added as a way to exercise the API end to end without touching
+  story data; it reads and writes nothing in Supabase. Not part of the Kidstory product —
+  if the API is ever deployed publicly, decide whether this endpoint should ship with it.
 - **Not in scope.** The API only writes to the database. It does not run the AI authoring
   (§3.7), the owner email (§3.9), or the Facebook/Instagram/YouTube auto-posts (§3.10–3.12) —
   those stay in the Nuxt publish pipeline and the daily cron.
