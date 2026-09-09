@@ -16,6 +16,7 @@ Version 1.0 · Draft for review
 | **Tech stack** | Nuxt 4 + Tailwind CSS |
 | **Content management** | Stories stored in a Supabase Postgres database (public read via anon key, writes via service-role key only), plus an unlisted AI-assisted authoring tool (`/studio`) that publishes new stories straight into the database — see §3.7 |
 | **Monetization** | The 5 oldest stories are free forever; every other story (including all future ones) requires a one-time $9.99 Stripe payment to read past the opening paragraph — see §9 |
+| **Companion API** | `kidstory-api` — a standalone FastAPI service in a sibling folder (`../kidstory-api`, own git repo) exposing the story catalog over REST, reading/writing the same Supabase database — see §10 |
 | **Visual reference** | Attached sample design (warm, illustrated, editorial blog layout) |
 | **Logo** | Provided (`logo.png`) — circular mark + wordmark + tagline lockup |
 
@@ -261,3 +262,38 @@ Implementation: Tailwind transition utilities + `@vueuse/motion` (or CSS keyfram
 - **Purchase flow:** a dedicated, custom-branded `/checkout` page (not a Stripe-hosted redirect) — matches the rest of the site's rounded/warm design, header/footer included. It calls `POST /api/checkout/create-intent` (requires a signed-in user) to create a Stripe PaymentIntent for $9.99, then mounts Stripe's embedded Payment Element (loaded client-side via `@stripe/stripe-js`) into the page using Stripe's `appearance` API themed with the site's actual color tokens (§2.2) and body font, so the card-entry UI blends into the page rather than looking like a generic Stripe widget. Stripe's own iframe still handles the raw card input for PCI compliance — only the surrounding page chrome, colors, and copy are custom. On submit, `stripe.confirmPayment()` completes the charge without leaving the page (`redirect: 'if_required'`); a 3D Secure challenge, if a card requires one, is the one part of the flow Stripe itself controls.
 - **Granting access:** a Stripe webhook (`POST /api/stripe/webhook`, verified against `STRIPE_WEBHOOK_SECRET`) listens for `payment_intent.succeeded` and upserts a row into `public.entitlements` for that user — this is the only thing that ever writes to that table. Access is checked by looking up that table, not by trusting anything client-side.
 - **Not in scope for v1:** refunds/chargebacks handling beyond Stripe's own dashboard, a customer-facing receipt/invoice history page, gifting or multi-device account recovery beyond Supabase's own magic-link re-send.
+
+---
+
+## 10. Companion API (`kidstory-api`)
+
+A separate FastAPI (Python) service living alongside this app at `../kidstory-api`, in its
+own git repository. It is **not** part of the Nuxt deployment — the site keeps serving its
+own Nitro routes (`server/api/*`) unchanged. The API exists to expose the story catalog as a
+standalone REST service for other clients and tools, with full create/read/update/delete on
+stories rather than the site's read-only public surface.
+
+- **Shared database, not a copy.** It talks to the same Supabase project and the same
+  `public.stories` / `public.entitlements` tables, with the same credential split the Nuxt app
+  uses: the anon key for reads (RLS-guarded) and the service-role key for writes and
+  entitlement lookups. A story published from `/studio` is immediately visible through the
+  API, and a story created through the API appears on the site.
+- **Endpoints.** `GET /health`, `GET /categories`, `GET /stories` (filters: `category`,
+  `ageRange`, `tag`, `q` search, `limit`/`offset`), `GET /stories/{slug}`, plus
+  `POST /stories`, `PATCH /stories/{slug}` and `DELETE /stories/{slug}`. Responses are
+  camelCase, matching the Nuxt app's `mapStoryRow()` shape.
+- **Auth.** Reads are public, like the site. Writes require an `X-API-Key` header matching
+  `KIDSTORY_API_KEY` (a secret belonging to the API, unrelated to Supabase Auth). Reading a
+  single story accepts an optional `Authorization: Bearer <Supabase access token>` so an
+  entitled reader can unlock premium stories.
+- **Paywall parity.** §9's rule is enforced server-side here too: a premium story returns only
+  its opening paragraph plus `locked: true` and `lockedBodyCount` unless the caller's Supabase
+  token maps to a row in `entitlements`. The listing endpoint never returns body text at all.
+- **Derived fields on create.** Slug (same `slugify()` rule, `-2`/`-3`… on collision), cover
+  image URL (a Python port of the Pollinations formula in §8), and `published_at` are derived
+  when omitted; new stories default to `is_premium = true`, per §9.
+- **Not in scope.** The API only writes to the database. It does not run the AI authoring
+  (§3.7), the owner email (§3.9), or the Facebook/Instagram/YouTube auto-posts (§3.10–3.12) —
+  those stay in the Nuxt publish pipeline and the daily cron.
+- **Stack.** Python 3.12, FastAPI, `supabase-py`, pydantic-settings, uvicorn; pytest suite runs
+  against an in-memory Supabase fake (no credentials, no network).
