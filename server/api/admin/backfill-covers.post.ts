@@ -1,23 +1,24 @@
+import { listAllStories, updateStory, KidstoryApiError } from '../../../shared/utils/kidstory-api'
+
 export default defineEventHandler(async () => {
-  const supabase = useSupabaseAdmin()
+  const api = useKidstoryApi()
 
-  const { data, error } = await supabase.from('stories').select('slug, title, category').is('cover_image_url', null)
+  try {
+    // The listing has no "cover is null" filter, so fetch the catalog and pick
+    // the gaps here — it's a handful of summaries, not the story bodies.
+    const missing = (await listAllStories(api)).filter((story) => !story.coverImageUrl)
 
-  if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
-  }
-
-  const rows = data ?? []
-  for (const row of rows) {
-    const { error: updateError } = await supabase
-      .from('stories')
-      .update({ cover_image_url: buildCoverImageUrl(row as { slug: string; title: string; category: string }) })
-      .eq('slug', row.slug)
-
-    if (updateError) {
-      throw createError({ statusCode: 500, statusMessage: updateError.message })
+    for (const story of missing) {
+      await updateStory(api, story.slug, {
+        coverImageUrl: buildCoverImageUrl({ title: story.title, category: story.category, slug: story.slug })
+      })
     }
-  }
 
-  return { backfilled: rows.length }
+    return { backfilled: missing.length }
+  } catch (err) {
+    if (err instanceof KidstoryApiError) {
+      throw createError({ statusCode: err.statusCode, statusMessage: err.message })
+    }
+    throw err
+  }
 })

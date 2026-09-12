@@ -14,9 +14,9 @@ Version 1.0 · Draft for review
 | **Purpose** | A blog where short stories for kids are published and read |
 | **Audience** | Kids of all ages (and the parents/guardians/teachers browsing with or for them) |
 | **Tech stack** | Nuxt 4 + Tailwind CSS |
-| **Content management** | Stories stored in a Supabase Postgres database (public read via anon key, writes via service-role key only), plus an unlisted AI-assisted authoring tool (`/studio`) that publishes new stories straight into the database — see §3.7 |
+| **Content management** | Stories stored in a Supabase Postgres database, accessed by the site **only through the `kidstory-api` companion service** (§10) — the Nuxt app itself never queries the `stories` table directly. Plus an unlisted AI-assisted authoring tool (`/studio`) that publishes new stories through the API — see §3.7 |
 | **Monetization** | The 5 oldest stories are free forever; every other story (including all future ones) requires a one-time $9.99 Stripe payment to read past the opening paragraph — see §9 |
-| **Companion API** | `kidstory-api` — a standalone FastAPI service in a sibling folder (`../kidstory-api`, own git repo) exposing the story catalog over REST, reading/writing the same Supabase database — see §10 |
+| **Companion API** | `kidstory-api` — a standalone FastAPI service in a sibling folder (`../kidstory-api`, own git repo) exposing the story catalog over REST; the site's only path to story data — see §10 |
 | **Visual reference** | Attached sample design (warm, illustrated, editorial blog layout) |
 | **Logo** | Provided (`logo.png`) — circular mark + wordmark + tagline lockup |
 
@@ -107,7 +107,7 @@ Modeled closely on the reference layout:
 
 ### 3.7 Studio (`/studio`) — internal authoring tool
 - Unlisted page (not linked from nav/footer, no auth) for the site owner to draft new stories with an AI model and publish them.
-- Chat-style flow: enter a topic (+ optional category/age hint) → the AI drafts a story → owner can ask for changes in follow-up messages → "Publish" inserts the finished story as a new row in the Supabase `stories` table with a generated slug.
+- Chat-style flow: enter a topic (+ optional category/age hint) → the AI drafts a story → owner can ask for changes in follow-up messages → "Publish" sends the finished story to `kidstory-api` (`POST /stories`), which derives the slug and stores it.
 - Server-side only: the OpenRouter API key and the Supabase service-role key both live in `runtimeConfig` (never sent to the client); a Nitro server route calls OpenRouter and another inserts the accepted draft into Supabase.
 - Works on read-only/serverless production hosts, since publishing is a database write rather than a filesystem write.
 - On successful publish, a copy of the new story is emailed to the site owner — see "New-story email notification" below.
@@ -268,11 +268,19 @@ Implementation: Tailwind transition utilities + `@vueuse/motion` (or CSS keyfram
 ## 10. Companion API (`kidstory-api`)
 
 A separate FastAPI (Python) service living alongside this app at `../kidstory-api`, in its
-own git repository. It is **not** part of the Nuxt deployment — the site keeps serving its
-own Nitro routes (`server/api/*`) unchanged. The API exists to expose the story catalog as a
-standalone REST service for other clients and tools, with full create/read/update/delete on
-stories rather than the site's read-only public surface.
+own git repository. It is **not** part of the Nuxt deployment, but the site **depends on it**:
+every story read and write in the Nuxt app goes through this API rather than straight to
+Supabase. The site's own Nitro routes (`server/api/stories/*`, `/studio` publish, the daily
+cron, the admin seed/backfill routes) are thin proxies that call the API, forwarding the
+reader's Supabase token on reads and attaching the API key on writes. The API is reachable
+from the Nuxt server via `KIDSTORY_API_URL` (default `http://localhost:8000`) and
+`KIDSTORY_API_KEY`.
 
+- **What stays on Supabase directly.** The API only covers stories and categories. The Nuxt
+  app still talks to Supabase itself for what the API has no route for: Supabase Auth
+  (magic-link sign-in in the browser, token verification on the server), the `entitlements`
+  table (Stripe webhook writes, access checks), and the `used_topics` table (daily auto-post
+  dedupe).
 - **Shared database, not a copy.** It talks to the same Supabase project and the same
   `public.stories` / `public.entitlements` tables, with the same credential split the Nuxt app
   uses: the anon key for reads (RLS-guarded) and the service-role key for writes and
@@ -281,7 +289,7 @@ stories rather than the site's read-only public surface.
 - **Endpoints.** `GET /health`, `GET /categories`, `GET /stories` (filters: `category`,
   `ageRange`, `tag`, `q` search, `limit`/`offset`), `GET /stories/{slug}`, plus
   `POST /stories`, `PATCH /stories/{slug}` and `DELETE /stories/{slug}`. Responses are
-  camelCase, matching the Nuxt app's `mapStoryRow()` shape.
+  camelCase (the `Story` shape the Nuxt pages consume).
 - **Auth.** Reads are public, like the site. Writes require an `X-API-Key` header matching
   `KIDSTORY_API_KEY` (a secret belonging to the API, unrelated to Supabase Auth). Reading a
   single story accepts an optional `Authorization: Bearer <Supabase access token>` so an

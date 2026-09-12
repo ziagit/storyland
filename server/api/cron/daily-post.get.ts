@@ -24,7 +24,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
+  // Topic bookkeeping (`used_topics`) has no kidstory-api route, so it still
+  // talks to Supabase directly; the story itself is published through the API.
   const supabase = useSupabaseAdmin()
+  const api = useKidstoryApi()
 
   try {
     const picked = await pickAutoPostTopic(supabase)
@@ -33,7 +36,7 @@ export default defineEventHandler(async (event) => {
       category: picked.category
     })
 
-    const { slug } = await publishStoryDraft(supabase, draft)
+    const { slug } = await publishStoryDraft(api, draft)
 
     // Record the topic immediately after a successful publish — before the
     // best-effort social posts — so a mid-run timeout (Hobby caps functions at

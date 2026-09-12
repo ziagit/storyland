@@ -4,7 +4,8 @@
 // in .github/workflows/auto-post.yml. It runs outside the Nuxt/Nitro context —
 // invoked via `npx tsx scripts/daily-post.ts`, so it can't use Nitro's
 // auto-imported `useRuntimeConfig()`/`createError()` and builds its own Supabase
-// client instead of reusing server/utils/supabase.ts. Reuses the same
+// client instead of reusing server/utils/supabase.ts (Supabase is only needed
+// for `used_topics`; the story itself is published via kidstory-api). Reuses the same
 // generate/publish/topic logic as /studio and the cron route so all paths stay
 // in sync. Unlike the Vercel route it also posts to YouTube (ffmpeg renders
 // fine here; on Vercel it can exceed the serverless bundle/time limits).
@@ -26,6 +27,8 @@ if (existsSync(envPath)) {
 
 const {
   OPENROUTER_API_KEY,
+  KIDSTORY_API_URL = 'http://localhost:8000',
+  KIDSTORY_API_KEY,
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
   GMAIL_USER,
@@ -41,12 +44,14 @@ const {
   YOUTUBE_REFRESH_TOKEN
 } = process.env
 
-if (!OPENROUTER_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+if (!OPENROUTER_API_KEY || !KIDSTORY_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error(
-    'Missing required environment variables. Need OPENROUTER_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY.'
+    'Missing required environment variables. Need OPENROUTER_API_KEY, KIDSTORY_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY.'
   )
   process.exit(1)
 }
+
+const api = { baseUrl: KIDSTORY_API_URL, apiKey: KIDSTORY_API_KEY }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -62,7 +67,7 @@ async function main() {
     category: picked.category
   })
 
-  const { slug } = await publishStoryDraft(supabase, draft)
+  const { slug } = await publishStoryDraft(api, draft)
   console.log(`Published "${draft.title}" -> /stories/${slug}`)
 
   // Record the topic right after a successful publish, before the best-effort

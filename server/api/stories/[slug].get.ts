@@ -1,39 +1,20 @@
+import { getStory, KidstoryApiError } from '../../../shared/utils/kidstory-api'
+
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
   if (!slug) {
     throw createError({ statusCode: 400, statusMessage: 'Slug is required.' })
   }
 
-  const supabase = useSupabasePublic()
-  const { data, error } = await supabase
-    .from('stories')
-    .select('*')
-    .eq('slug', slug)
-    .maybeSingle()
-
-  if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
-  }
-  if (!data) {
-    throw createError({ statusCode: 404, statusMessage: 'Story not found' })
-  }
-
-  const story = mapStoryRow(data as StoryRow)
-  if (!story.isPremium) {
-    return story
-  }
-
-  const user = await getUserFromEvent(event)
-  const unlocked = user ? await hasFullAccess(user.id) : false
-  if (unlocked) {
-    return story
-  }
-
-  // Paywalled and not entitled: keep the teaser paragraph, withhold the rest.
-  return {
-    ...story,
-    body: story.body.slice(0, 1),
-    locked: true,
-    lockedBodyCount: story.body.length
+  // The paywall is enforced by the API: a premium story comes back with only its
+  // teaser paragraph plus `locked: true` unless the forwarded reader token maps
+  // to an entitlement. Nothing to redact here.
+  try {
+    return await getStory(useKidstoryApi(), slug, getReaderToken(event))
+  } catch (err) {
+    if (err instanceof KidstoryApiError) {
+      throw createError({ statusCode: err.statusCode, statusMessage: err.statusCode === 404 ? 'Story not found' : err.message })
+    }
+    throw err
   }
 })

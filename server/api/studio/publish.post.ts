@@ -46,9 +46,9 @@ export default defineEventHandler(async (event) => {
     body: storyBody
   }
 
-  const supabase = useSupabaseAdmin()
+  const api = useKidstoryApi()
   try {
-    const result = await publishStoryDraft(supabase, draft)
+    const result = await publishStoryDraft(api, draft)
     // Never lets a notification failure fail the publish itself — sendNewStoryEmail
     // swallows its own errors (logged, not thrown).
     const config = useRuntimeConfig()
@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
     // request origin: when /studio runs on localhost, getRequestURL() yields
     // http://localhost:3000, which Facebook can't fetch to build a link preview
     // ("The url you supplied is invalid") and which makes for useless email links too.
-    // Stories live in the shared Supabase DB, so the deployed URL resolves either way.
+    // Stories live in the shared database behind kidstory-api, so the deployed URL resolves either way.
     const siteUrl = config.siteUrl || getRequestURL(event).origin
     await sendNewStoryEmail(
       { user: config.gmailUser, appPassword: config.gmailAppPassword },

@@ -1,16 +1,23 @@
-export default defineEventHandler(async () => {
-  const supabase = useSupabasePublic()
-  // Body is intentionally omitted here — the listing/card views never render it, and
-  // fetching it for every story would leak the full text of paywalled stories to
-  // anyone browsing /stories, regardless of whether they've paid.
-  const { data, error } = await supabase
-    .from('stories')
-    .select('slug, title, emoji, excerpt, category, age_range, read_time_minutes, tags, cover_image_url, published_at, is_premium')
-    .order('published_at', { ascending: false })
+import { listAllStories, KidstoryApiError } from '../../../shared/utils/kidstory-api'
 
-  if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+export default defineEventHandler(async (event) => {
+  // Optional filters pass straight through to the API; with none, this is the
+  // full newest-first catalog the pages have always consumed. The API never
+  // returns body text from its listing, so paywalled stories can't leak here.
+  const query = getQuery(event)
+  const pick = (key: string) => (typeof query[key] === 'string' && query[key] ? String(query[key]) : undefined)
+
+  try {
+    return await listAllStories(useKidstoryApi(), {
+      category: pick('category'),
+      ageRange: pick('ageRange'),
+      tag: pick('tag'),
+      q: pick('q')
+    })
+  } catch (err) {
+    if (err instanceof KidstoryApiError) {
+      throw createError({ statusCode: err.statusCode, statusMessage: err.message })
+    }
+    throw err
   }
-
-  return (data ?? []).map((row) => mapStoryRow(row as StoryRow))
 })

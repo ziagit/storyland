@@ -23,6 +23,10 @@ export default defineNuxtConfig({
     // Shared secret between Vercel Cron and /api/cron/daily-post — Vercel sends it
     // as `Authorization: Bearer ${CRON_SECRET}`; the route rejects anything else.
     cronSecret: process.env.CRON_SECRET,
+    // kidstory-api companion service — every story read/write goes through it
+    // instead of straight to Supabase. The key guards its write endpoints.
+    kidstoryApiUrl: process.env.KIDSTORY_API_URL || 'http://localhost:8000',
+    kidstoryApiKey: process.env.KIDSTORY_API_KEY,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,

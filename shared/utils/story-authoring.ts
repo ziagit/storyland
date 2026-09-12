@@ -2,8 +2,7 @@
 // Nitro `/studio` routes (server/api/studio/*.post.ts) and the standalone
 // scripts/daily-post.ts script, which runs outside the Nuxt/Nitro context and
 // so can't use Nitro's auto-imported `useRuntimeConfig()`/`createError()`.
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildCoverImageUrl } from '../../server/utils/cover-image'
+import { createStory, KidstoryApiError, type KidstoryApiConfig } from './kidstory-api'
 
 export const CATEGORY_SLUGS = ['adventure', 'bedtime', 'animals', 'friendship', 'fairy-tale', 'funny'] as const
 export const AGE_RANGES = ['3-5', '6-8', '9-12', 'all-ages'] as const
@@ -159,44 +158,17 @@ export async function generateStoryDraft(
   throw lastError
 }
 
-function slugify(title: string): string {
-  const base = title
-    .toLowerCase()
-    .replace(/['"]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-  return base || 'new-story'
-}
-
-export async function publishStoryDraft(supabase: SupabaseClient, draft: StoryDraft): Promise<{ slug: string }> {
-  const base = slugify(draft.title)
-  let slug = base
-
-  for (let attempt = 1; attempt <= 20; attempt++) {
-    const { error } = await supabase.from('stories').insert({
-      slug,
-      title: draft.title,
-      emoji: draft.emoji,
-      excerpt: draft.excerpt,
-      category: draft.category,
-      age_range: draft.ageRange,
-      read_time_minutes: draft.readTimeMinutes,
-      tags: draft.tags,
-      body: draft.body,
-      cover_image_url: buildCoverImageUrl({ title: draft.title, category: draft.category, slug }),
-      published_at: new Date().toISOString()
-    })
-
-    if (!error) {
-      return { slug }
+export async function publishStoryDraft(api: KidstoryApiConfig, draft: StoryDraft): Promise<{ slug: string }> {
+  // The API derives the slug (with `-2`/`-3`… on collision), the cover image URL
+  // and `publishedAt`, and defaults new stories to premium — same rules that used
+  // to live here, now enforced in one place for every client.
+  try {
+    const story = await createStory(api, draft)
+    return { slug: story.slug }
+  } catch (err) {
+    if (err instanceof KidstoryApiError) {
+      throw new StoryAuthoringError(err.statusCode >= 500 ? 500 : err.statusCode, err.message)
     }
-    if (error.code === '23505') {
-      slug = `${base}-${attempt + 1}`
-      continue
-    }
-    throw new StoryAuthoringError(500, error.message)
+    throw err
   }
-
-  throw new StoryAuthoringError(500, 'Could not generate a unique slug.')
 }
