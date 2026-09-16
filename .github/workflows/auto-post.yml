@@ -22,7 +22,8 @@ jobs:
 
       - run: npm run auto-post
         env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          KIDSTORY_API_URL: ${{ secrets.KIDSTORY_API_URL }}
+          KIDSTORY_API_KEY: ${{ secrets.KIDSTORY_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}

@@ -18,8 +18,11 @@ export interface PickedTopic {
 /**
  * Picks a story premise not yet used. Prefers an unused entry from the curated
  * pool (random among those remaining); once the whole pool has been used at
- * least once, asks the model to invent a fresh one, steering it away from a
- * bounded slice of everything used so far.
+ * least once, it cycles back through the pool. The Kidstory model samples a
+ * fresh telling of the premise each time (it's a small prose model — asking it
+ * to invent a topic distinct from a long avoid-list, as the OpenRouter version
+ * did, is beyond it), and the generated title is recorded instead of the
+ * premise so the run still counts as new.
  */
 export async function pickAutoPostTopic(supabase: SupabaseClient): Promise<PickedTopic> {
   const { data, error } = await supabase
@@ -39,9 +42,8 @@ export async function pickAutoPostTopic(supabase: SupabaseClient): Promise<Picke
     return { topic: picked.topic, category: picked.category, recordAs: picked.topic }
   }
 
-  const avoidList = [...used].slice(0, 150).join('; ')
-  const topic = `Invent one brand-new, original short story idea for kids (in your head, do not restate it) that is completely different from all of these previously used story topics and titles: ${avoidList}. Then write that story.`
-  return { topic, category: undefined, recordAs: null }
+  const again = TOPIC_POOL[Math.floor(Math.random() * TOPIC_POOL.length)]
+  return { topic: again.topic, category: again.category, recordAs: null }
 }
 
 /**

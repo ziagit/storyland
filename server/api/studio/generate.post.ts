@@ -8,12 +8,11 @@ interface GenerateBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
   const body = await readBody<GenerateBody>(event)
   const topic = body?.topic?.trim() ?? ''
 
   try {
-    const result = await generateStoryDraft(config.openrouterApiKey, {
+    const result = await generateStoryDraft(useKidstoryApi(), {
       topic,
       category: body?.category,
       ageRange: body?.ageRange,

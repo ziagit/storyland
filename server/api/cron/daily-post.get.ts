@@ -25,13 +25,13 @@ export default defineEventHandler(async (event) => {
   }
 
   // Topic bookkeeping (`used_topics`) has no kidstory-api route, so it still
-  // talks to Supabase directly; the story itself is published through the API.
+  // talks to Supabase directly; the story is generated and published through the API.
   const supabase = useSupabaseAdmin()
   const api = useKidstoryApi()
 
   try {
     const picked = await pickAutoPostTopic(supabase)
-    const { draft } = await generateStoryDraft(config.openrouterApiKey, {
+    const { draft } = await generateStoryDraft(api, {
       topic: picked.topic,
       category: picked.category
     })

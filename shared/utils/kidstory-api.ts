@@ -2,7 +2,7 @@
 // story read and write in the app goes through here instead of straight to
 // Supabase. Framework-agnostic on purpose — shared between the Nitro routes and
 // scripts/daily-post.ts, which runs outside Nuxt and has no `useRuntimeConfig()`.
-import type { StoryDraft } from './story-authoring'
+import type { ChatMessage, StoryDraft } from './story-authoring'
 
 export interface KidstoryApiConfig {
   baseUrl: string
@@ -54,6 +54,20 @@ export interface StoryCreateInput extends StoryDraft {
 }
 
 export type StoryUpdateInput = Partial<Omit<StoryCreateInput, 'slug'>>
+
+export interface StoryGenerateInput {
+  topic: string
+  category?: string
+  ageRange?: string
+  // Prior turns of a /studio conversation, so follow-ups revise the same story.
+  history?: ChatMessage[]
+}
+
+export interface StoryGenerateResult {
+  draft: StoryDraft
+  // The conversation including this turn — send it back with the next request.
+  history: ChatMessage[]
+}
 
 export interface Category {
   slug: string
@@ -167,6 +181,11 @@ export function getStory(config: KidstoryApiConfig, slug: string, readerToken?: 
 
 export function createStory(config: KidstoryApiConfig, input: StoryCreateInput): Promise<Story> {
   return request<Story>(config, '/stories', { method: 'POST', body: input, requireApiKey: true })
+}
+
+/** Drafts a story with the Kidstory model (`POST /stories/generate`). Nothing is saved. */
+export function generateStory(config: KidstoryApiConfig, input: StoryGenerateInput): Promise<StoryGenerateResult> {
+  return request<StoryGenerateResult>(config, '/stories/generate', { method: 'POST', body: input, requireApiKey: true })
 }
 
 export function updateStory(config: KidstoryApiConfig, slug: string, changes: StoryUpdateInput): Promise<Story> {

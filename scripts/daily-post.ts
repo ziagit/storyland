@@ -26,7 +26,6 @@ if (existsSync(envPath)) {
 }
 
 const {
-  OPENROUTER_API_KEY,
   KIDSTORY_API_URL = 'http://localhost:8000',
   KIDSTORY_API_KEY,
   SUPABASE_URL,
@@ -44,10 +43,8 @@ const {
   YOUTUBE_REFRESH_TOKEN
 } = process.env
 
-if (!OPENROUTER_API_KEY || !KIDSTORY_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error(
-    'Missing required environment variables. Need OPENROUTER_API_KEY, KIDSTORY_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY.'
-  )
+if (!KIDSTORY_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('Missing required environment variables. Need KIDSTORY_API_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY.')
   process.exit(1)
 }
 
@@ -62,7 +59,7 @@ async function main() {
   const picked = await pickAutoPostTopic(supabase)
   console.log(`Topic: ${picked.recordAs ?? '(model-invented, pool exhausted)'}`)
 
-  const { draft } = await generateStoryDraft(OPENROUTER_API_KEY, {
+  const { draft } = await generateStoryDraft(api, {
     topic: picked.topic,
     category: picked.category
   })
