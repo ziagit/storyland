@@ -25,3 +25,4 @@ logs
 
 # Local Claude Code settings (personal permission allowlist, not project config)
 .claude/settings.local.json
+.vercel
