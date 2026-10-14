@@ -4,11 +4,10 @@
 // Nuxt/Nitro context and so can't use Nitro's auto-imported
 // `useRuntimeConfig()`/`createError()`.
 //
-// Generation runs on kidstory-api (`POST /stories/generate`), which calls
-// Kidstory's own fine-tuned model — ziaflutter/tinyllama-cat-mouse-story, served
-// from a Hugging Face Space. This module used to call OpenRouter directly; the
-// prompt, the output parsing and the retry now live in the API's
-// app/story_generator.py, so every client gets the same drafts.
+// Generation runs on kidstory-api (`POST /stories/generate`), which writes the
+// story with Claude through the Anthropic API. The prompt, the output parsing
+// and the retry live in the API's app/story_generator.py, so every client gets
+// the same drafts.
 import { createStory, generateStory, KidstoryApiError, type KidstoryApiConfig } from './kidstory-api'
 
 export const CATEGORY_SLUGS = ['adventure', 'bedtime', 'animals', 'friendship', 'fairy-tale', 'funny'] as const
