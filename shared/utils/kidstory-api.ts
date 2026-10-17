@@ -55,25 +55,17 @@ export interface StoryCreateInput extends StoryDraft {
 
 export type StoryUpdateInput = Partial<Omit<StoryCreateInput, 'slug'>>
 
-export interface StoryGenerateInput {
-  topic: string
-  category?: string
-  ageRange?: string
-  // Prior turns of a /studio conversation, so follow-ups revise the same story.
-  history?: ChatMessage[]
-}
-
-export interface StoryGenerateResult {
-  draft: StoryDraft
-  // The conversation including this turn — send it back with the next request.
-  history: ChatMessage[]
-}
-
 export interface StoryAgentInput {
   // A premise to build on; left out, the agent chooses one from the catalog's gaps.
+  // With `draft`, the change asked for instead ("make it shorter").
   topic?: string
+  // Fixed when given; otherwise the agent chooses.
   category?: string
   ageRange?: string
+  // The story to revise. Left out, the agent writes a new one.
+  draft?: StoryDraft
+  // Earlier turns of a /studio conversation, as returned by the last call.
+  history?: ChatMessage[]
 }
 
 export interface AgentStep {
@@ -83,9 +75,11 @@ export interface AgentStep {
 
 export interface StoryAgentResult {
   draft: StoryDraft
-  // The agent's one-line account of why it wrote this story.
+  // The agent's one-line account of why it wrote this story, or what it changed.
   notes: string
   steps: AgentStep[]
+  // The conversation including this turn — send it back with the next request.
+  history: ChatMessage[]
 }
 
 export interface SocialAgentInput {
@@ -222,12 +216,7 @@ export function createStory(config: KidstoryApiConfig, input: StoryCreateInput):
   return request<Story>(config, '/stories', { method: 'POST', body: input, requireApiKey: true })
 }
 
-/** Drafts a story with Claude in one call (`POST /stories/generate`). Nothing is saved. */
-export function generateStory(config: KidstoryApiConfig, input: StoryGenerateInput): Promise<StoryGenerateResult> {
-  return request<StoryGenerateResult>(config, '/stories/generate', { method: 'POST', body: input, requireApiKey: true })
-}
-
-/** Runs the story agent (`POST /agents/story`): it picks, writes and checks a story. Nothing is saved. */
+/** Runs the story agent (`POST /agents/story`): it writes or revises a story and checks it. Nothing is saved. */
 export function runStoryAgent(config: KidstoryApiConfig, input: StoryAgentInput = {}): Promise<StoryAgentResult> {
   return request<StoryAgentResult>(config, '/agents/story', { method: 'POST', body: input, requireApiKey: true })
 }

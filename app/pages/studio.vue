@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Sparkles, Send, Loader2, Wand2, CircleCheck, MessageCircle } from '@lucide/vue'
+import { Sparkles, Send, Loader2, Wand2, CircleCheck, CircleAlert, MessageCircle } from '@lucide/vue'
 import { categories } from '~/data/categories'
 
 useSeoMeta({
@@ -70,22 +70,24 @@ async function generate(promptText: string) {
   scrollChatToBottom()
 
   try {
-    const res = await $fetch<{ draft: StoryDraft; history: ChatMessage[] }>('/api/studio/generate', {
+    // The story agent writes the first draft and revises it on follow-ups. The
+    // category/age selects only apply until there's a draft (they're hidden after),
+    // so a follow-up like "make it a bedtime story" is free to change them.
+    const revising = currentDraft.value !== null
+    const res = await $fetch<{ draft: StoryDraft; notes: string; history: ChatMessage[] }>('/api/studio/generate', {
       method: 'POST',
       body: {
         topic: promptText,
-        category: category.value || undefined,
-        ageRange: ageRange.value || undefined,
+        category: (!revising && category.value) || undefined,
+        ageRange: (!revising && ageRange.value) || undefined,
+        draft: currentDraft.value ?? undefined,
         history: apiHistory.value
       }
     })
     currentDraft.value = res.draft
     apiHistory.value = res.history
-    entries.value.push({
-      role: 'assistant',
-      text: isFirst ? "Here's your first draft — check it out on the left!" : 'Updated — take a look on the left!',
-      draft: res.draft
-    })
+    const fallback = isFirst ? "Here's your first draft — check it out on the left!" : 'Updated — take a look on the left!'
+    entries.value.push({ role: 'assistant', text: res.notes || fallback, draft: res.draft })
   } catch (err: any) {
     error.value = err?.data?.statusMessage || err?.message || 'Something went wrong talking to the AI.'
   } finally {
@@ -220,7 +222,7 @@ function startNewStory() {
             </div>
 
             <div v-if="generating" class="flex max-w-[90%] items-center gap-2 rounded-2xl rounded-tl-md bg-tan/40 px-4 py-2.5 text-sm text-ink-muted">
-              <Loader2 class="h-3.5 w-3.5 animate-spin" /> Writing…
+              <Loader2 class="h-3.5 w-3.5 animate-spin" /> The story agent is writing and checking…
             </div>
           </div>
 

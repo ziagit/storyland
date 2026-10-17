@@ -4,11 +4,12 @@
 // Nuxt/Nitro context and so can't use Nitro's auto-imported
 // `useRuntimeConfig()`/`createError()`.
 //
-// Generation runs on kidstory-api. The /studio chat uses `POST /stories/generate`
-// (one Claude call, app/story_generator.py); unattended publishing uses the story
-// agent (`POST /agents/story`, app/agents/story_agent.py), which looks at the
-// catalog, picks what to write and revises until the story passes its checks.
-import { createStory, generateStory, KidstoryApiError, runStoryAgent, type AgentStep, type KidstoryApiConfig } from './kidstory-api'
+// Every story is written by kidstory-api's story agent (`POST /agents/story`,
+// app/agents/story_agent.py), which looks at the catalog, writes the story and
+// revises it until it passes the catalog's checks. The /studio chat and the
+// unattended publishers all go through `createStoryWithAgent()`; the chat also
+// sends the current draft and history so follow-ups revise the same story.
+import { createStory, KidstoryApiError, runStoryAgent, type AgentStep, type KidstoryApiConfig } from './kidstory-api'
 
 export const CATEGORY_SLUGS = ['adventure', 'bedtime', 'animals', 'friendship', 'fairy-tale', 'funny'] as const
 export const AGE_RANGES = ['3-5', '6-8', '9-12', 'all-ages'] as const
@@ -47,45 +48,31 @@ function toAuthoringError(err: unknown): unknown {
   return err
 }
 
-export async function generateStoryDraft(
-  api: KidstoryApiConfig,
-  { topic, category, ageRange, history = [] }: { topic: string; category?: string; ageRange?: string; history?: ChatMessage[] }
-): Promise<{ draft: StoryDraft; history: ChatMessage[] }> {
-  if (!topic.trim()) {
-    throw new StoryAuthoringError(400, 'A topic is required.')
-  }
-
-  // The API only accepts the category/age values it knows; an unknown one from
-  // the studio's selects would be a 422, so drop it rather than fail the call.
-  const knownCategory = CATEGORY_SLUGS.includes(category as any) ? category : undefined
-  const knownAgeRange = AGE_RANGES.includes(ageRange as any) ? ageRange : undefined
-
-  try {
-    return await generateStory(api, {
-      topic: topic.trim(),
-      category: knownCategory,
-      ageRange: knownAgeRange,
-      history: history.slice(-12)
-    })
-  } catch (err) {
-    throw toAuthoringError(err)
-  }
-}
-
 /**
  * Has the story agent write a story. `topic` is a premise to build on; left out,
  * the agent chooses one, and it chooses the category and age range itself unless
- * they're given.
+ * they're given. With `draft`, the agent revises it as `topic` asks instead;
+ * `history` is the conversation so far, and the returned history includes this turn.
  */
 export async function createStoryWithAgent(
   api: KidstoryApiConfig,
-  { topic, category, ageRange }: { topic?: string; category?: string; ageRange?: string } = {}
-): Promise<{ draft: StoryDraft; notes: string; steps: AgentStep[] }> {
+  {
+    topic,
+    category,
+    ageRange,
+    draft,
+    history = []
+  }: { topic?: string; category?: string; ageRange?: string; draft?: StoryDraft; history?: ChatMessage[] } = {}
+): Promise<{ draft: StoryDraft; notes: string; steps: AgentStep[]; history: ChatMessage[] }> {
+  // The API only accepts the category/age values it knows; an unknown one would
+  // be a 422, so drop it rather than fail the call.
   try {
     return await runStoryAgent(api, {
       topic: topic?.trim() || undefined,
       category: CATEGORY_SLUGS.includes(category as any) ? category : undefined,
-      ageRange: AGE_RANGES.includes(ageRange as any) ? ageRange : undefined
+      ageRange: AGE_RANGES.includes(ageRange as any) ? ageRange : undefined,
+      draft,
+      history: history.slice(-12)
     })
   } catch (err) {
     throw toAuthoringError(err)
