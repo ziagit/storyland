@@ -12,10 +12,6 @@ export default defineNuxtConfig({
     gmailAppPassword: process.env.GMAIL_APP_PASSWORD,
     notifyEmails: process.env.NOTIFY_EMAILS,
     siteUrl: process.env.SITE_URL,
-    facebookPageId: process.env.FACEBOOK_PAGE_ID,
-    facebookPageAccessToken: process.env.FACEBOOK_PAGE_ACCESS_TOKEN,
-    instagramAccountId: process.env.INSTAGRAM_ACCOUNT_ID,
-    instagramAccessToken: process.env.INSTAGRAM_ACCESS_TOKEN,
     youtubeClientId: process.env.YOUTUBE_CLIENT_ID,
     youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET,
     youtubeRefreshToken: process.env.YOUTUBE_REFRESH_TOKEN,
@@ -33,13 +29,14 @@ export default defineNuxtConfig({
     }
   },
   nitro: {
-    // The daily-post cron route runs an LLM call + several API posts back to
-    // back; the default 10s Vercel function limit isn't enough. 60s is the
-    // ceiling on Vercel's Hobby plan. Applies to all server routes (a higher
-    // ceiling doesn't slow down routes that finish fast).
+    // The daily-post cron route waits on two agent runs (story, then social) on
+    // kidstory-api, each several Claude turns, plus the email. 300s is the Hobby
+    // ceiling with Fluid compute, which kidstory-api already relies on (its
+    // functions run up to 120s). Applies to all server routes (a higher ceiling
+    // doesn't slow down routes that finish fast).
     vercel: {
       functions: {
-        maxDuration: 60
+        maxDuration: 300
       }
     }
   },

@@ -1,7 +1,6 @@
 import { CATEGORY_SLUGS, AGE_RANGES, publishStoryDraft, StoryAuthoringError, type StoryDraft } from '../../../shared/utils/story-authoring'
 import { sendNewStoryEmail, parseRecipients } from '../../../shared/utils/notify'
-import { postStoryToFacebook } from '../../../shared/utils/facebook'
-import { postStoryToInstagram } from '../../../shared/utils/instagram'
+import { shareStoryOnSocial } from '../../../shared/utils/social-sharing'
 import { postStoryToYouTube } from '../../../shared/utils/youtube'
 
 interface PublishBody {
@@ -65,18 +64,10 @@ export default defineEventHandler(async (event) => {
       siteUrl,
       parseRecipients(config.notifyEmails)
     )
-    await postStoryToFacebook(
-      { pageId: config.facebookPageId, pageAccessToken: config.facebookPageAccessToken },
-      draft,
-      result.slug,
-      siteUrl
-    )
-    await postStoryToInstagram(
-      { accountId: config.instagramAccountId, accessToken: config.instagramAccessToken },
-      draft,
-      result.slug,
-      siteUrl
-    )
+    // The social agent writes and publishes the Facebook + Instagram posts. Pass
+    // only an explicit SITE_URL: a localhost origin is no use in a post, and the
+    // API falls back to its own SITE_URL.
+    await shareStoryOnSocial(api, result.slug, config.siteUrl || undefined)
     await postStoryToYouTube(
       {
         clientId: config.youtubeClientId,

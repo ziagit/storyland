@@ -1,4 +1,4 @@
-// Framework-agnostic like shared/utils/facebook.ts and instagram.ts — called from the
+// Framework-agnostic like shared/utils/notify.ts and social-sharing.ts — called from the
 // Nitro /studio publish route and from the standalone scripts/daily-post.ts script.
 //
 // YouTube needs OAuth 2.0 (not a permanent token): a Google Cloud project with the
@@ -16,7 +16,7 @@ import { google } from 'googleapis'
 import { buildCoverImageUrl } from '../../server/utils/cover-image'
 import type { StoryDraft } from './story-authoring'
 
-// Same IPv6 ENETUNREACH reason as facebook.ts / instagram.ts.
+// Same IPv6 ENETUNREACH reason as kidstory-api's app/social.py and notify.ts.
 dns.setDefaultResultOrder('ipv4first')
 
 const DEFAULT_SITE_URL = 'https://storyland-sigma.vercel.app'

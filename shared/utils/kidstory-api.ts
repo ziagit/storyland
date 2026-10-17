@@ -69,6 +69,45 @@ export interface StoryGenerateResult {
   history: ChatMessage[]
 }
 
+export interface StoryAgentInput {
+  // A premise to build on; left out, the agent chooses one from the catalog's gaps.
+  topic?: string
+  category?: string
+  ageRange?: string
+}
+
+export interface AgentStep {
+  tool: string
+  detail: string
+}
+
+export interface StoryAgentResult {
+  draft: StoryDraft
+  // The agent's one-line account of why it wrote this story.
+  notes: string
+  steps: AgentStep[]
+}
+
+export interface SocialAgentInput {
+  slug: string
+  siteUrl?: string
+  dryRun?: boolean
+}
+
+export interface SocialPostResult {
+  platform: 'facebook' | 'instagram'
+  status: 'posted' | 'dry_run' | 'skipped' | 'failed'
+  text: string | null
+  postId: string | null
+  error: string | null
+}
+
+export interface SocialAgentResult {
+  posts: SocialPostResult[]
+  notes: string
+  steps: AgentStep[]
+}
+
 export interface Category {
   slug: string
   label: string
@@ -183,9 +222,19 @@ export function createStory(config: KidstoryApiConfig, input: StoryCreateInput):
   return request<Story>(config, '/stories', { method: 'POST', body: input, requireApiKey: true })
 }
 
-/** Drafts a story with the Kidstory model (`POST /stories/generate`). Nothing is saved. */
+/** Drafts a story with Claude in one call (`POST /stories/generate`). Nothing is saved. */
 export function generateStory(config: KidstoryApiConfig, input: StoryGenerateInput): Promise<StoryGenerateResult> {
   return request<StoryGenerateResult>(config, '/stories/generate', { method: 'POST', body: input, requireApiKey: true })
+}
+
+/** Runs the story agent (`POST /agents/story`): it picks, writes and checks a story. Nothing is saved. */
+export function runStoryAgent(config: KidstoryApiConfig, input: StoryAgentInput = {}): Promise<StoryAgentResult> {
+  return request<StoryAgentResult>(config, '/agents/story', { method: 'POST', body: input, requireApiKey: true })
+}
+
+/** Runs the social agent (`POST /agents/social`): it writes and publishes posts for a published story. */
+export function runSocialAgent(config: KidstoryApiConfig, input: SocialAgentInput): Promise<SocialAgentResult> {
+  return request<SocialAgentResult>(config, '/agents/social', { method: 'POST', body: input, requireApiKey: true })
 }
 
 export function updateStory(config: KidstoryApiConfig, slug: string, changes: StoryUpdateInput): Promise<Story> {

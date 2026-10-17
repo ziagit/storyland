@@ -1,16 +1,16 @@
 // Unattended daily story publish, triggered by Vercel Cron (see vercel.json).
-// Does what scripts/daily-post.ts does — pick an unused topic, generate a story,
-// publish it, then email the owner and post to Facebook + Instagram — but as a
-// Nitro route so it runs on the deployment itself instead of GitHub Actions.
+// Does what scripts/daily-post.ts does — the story agent writes a story, it's
+// published, the owner is emailed, and the social agent shares it on Facebook +
+// Instagram — but as a Nitro route so it runs on the deployment itself instead
+// of GitHub Actions. Both agents run on kidstory-api.
 //
 // YouTube is deliberately NOT wired here: rendering a video needs ffmpeg-static
 // (~80 MB, can blow Vercel's serverless bundle limit) and the render + upload is
-// slow enough to risk the Hobby-plan 60s function cap. YouTube auto-post stays
+// slow enough to risk the function time limit. YouTube auto-post stays
 // available from /studio publish and the manual GitHub Actions fallback.
-import { generateStoryDraft, publishStoryDraft, StoryAuthoringError } from '../../../shared/utils/story-authoring'
+import { createStoryWithAgent, publishStoryDraft, StoryAuthoringError } from '../../../shared/utils/story-authoring'
 import { sendNewStoryEmail, parseRecipients } from '../../../shared/utils/notify'
-import { postStoryToFacebook } from '../../../shared/utils/facebook'
-import { postStoryToInstagram } from '../../../shared/utils/instagram'
+import { shareStoryOnSocial } from '../../../shared/utils/social-sharing'
 import { pickAutoPostTopic, recordUsedTopic } from '../../../shared/utils/auto-post'
 
 export default defineEventHandler(async (event) => {
@@ -31,17 +31,19 @@ export default defineEventHandler(async (event) => {
 
   try {
     const picked = await pickAutoPostTopic(supabase)
-    const { draft } = await generateStoryDraft(api, {
-      topic: picked.topic,
-      category: picked.category
+    // An unused premise from the pool steers the agent; once the pool is used up
+    // (recordAs is null) it chooses its own instead of retelling an old one.
+    const { draft, notes } = await createStoryWithAgent(api, {
+      topic: picked.recordAs ? picked.topic : undefined,
+      category: picked.recordAs ? picked.category : undefined
     })
+    console.log(`Story agent: ${notes}`)
 
     const { slug } = await publishStoryDraft(api, draft)
 
     // Record the topic immediately after a successful publish — before the
-    // best-effort social posts — so a mid-run timeout (Hobby caps functions at
-    // 60s) can't leave the topic unrecorded and cause tomorrow's run to
-    // regenerate the same premise.
+    // best-effort social posts — so a mid-run timeout can't leave the topic
+    // unrecorded and cause tomorrow's run to regenerate the same premise.
     await recordUsedTopic(supabase, picked.recordAs ?? draft.title)
 
     // siteUrl must be the deployed, publicly-reachable origin: Facebook fetches
@@ -57,18 +59,7 @@ export default defineEventHandler(async (event) => {
       siteUrl,
       parseRecipients(config.notifyEmails)
     )
-    await postStoryToFacebook(
-      { pageId: config.facebookPageId, pageAccessToken: config.facebookPageAccessToken },
-      draft,
-      slug,
-      siteUrl
-    )
-    await postStoryToInstagram(
-      { accountId: config.instagramAccountId, accessToken: config.instagramAccessToken },
-      draft,
-      slug,
-      siteUrl
-    )
+    await shareStoryOnSocial(api, slug, siteUrl)
 
     return { ok: true, published: slug, title: draft.title }
   } catch (err) {

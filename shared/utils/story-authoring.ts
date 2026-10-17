@@ -4,11 +4,11 @@
 // Nuxt/Nitro context and so can't use Nitro's auto-imported
 // `useRuntimeConfig()`/`createError()`.
 //
-// Generation runs on kidstory-api (`POST /stories/generate`), which writes the
-// story with Claude through the Anthropic API. The prompt, the output parsing
-// and the retry live in the API's app/story_generator.py, so every client gets
-// the same drafts.
-import { createStory, generateStory, KidstoryApiError, type KidstoryApiConfig } from './kidstory-api'
+// Generation runs on kidstory-api. The /studio chat uses `POST /stories/generate`
+// (one Claude call, app/story_generator.py); unattended publishing uses the story
+// agent (`POST /agents/story`, app/agents/story_agent.py), which looks at the
+// catalog, picks what to write and revises until the story passes its checks.
+import { createStory, generateStory, KidstoryApiError, runStoryAgent, type AgentStep, type KidstoryApiConfig } from './kidstory-api'
 
 export const CATEGORY_SLUGS = ['adventure', 'bedtime', 'animals', 'friendship', 'fairy-tale', 'funny'] as const
 export const AGE_RANGES = ['3-5', '6-8', '9-12', 'all-ages'] as const
@@ -66,6 +66,26 @@ export async function generateStoryDraft(
       category: knownCategory,
       ageRange: knownAgeRange,
       history: history.slice(-12)
+    })
+  } catch (err) {
+    throw toAuthoringError(err)
+  }
+}
+
+/**
+ * Has the story agent write a story. `topic` is a premise to build on; left out,
+ * the agent chooses one, and it chooses the category and age range itself unless
+ * they're given.
+ */
+export async function createStoryWithAgent(
+  api: KidstoryApiConfig,
+  { topic, category, ageRange }: { topic?: string; category?: string; ageRange?: string } = {}
+): Promise<{ draft: StoryDraft; notes: string; steps: AgentStep[] }> {
+  try {
+    return await runStoryAgent(api, {
+      topic: topic?.trim() || undefined,
+      category: CATEGORY_SLUGS.includes(category as any) ? category : undefined,
+      ageRange: AGE_RANGES.includes(ageRange as any) ? ageRange : undefined
     })
   } catch (err) {
     throw toAuthoringError(err)

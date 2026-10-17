@@ -114,8 +114,8 @@ Modeled closely on the reference layout:
 
 ### 3.8 Automated publishing
 - A new story is generated and published unattended once a day, every morning (Vercel Cron, `0 2 * * *` = ~07:00 Asia/Karachi — the Hobby plan fires it sometime within the 02:00 UTC hour), on top of (not replacing) manual `/studio` use — see §8 for the mechanism.
-- Topics are drawn from a curated seed pool (`shared/utils/topic-pool.ts`, ~60 premises spread across the six categories) without repeats, tracked via a Supabase `used_topics` table; once the pool is exhausted the model is asked to invent a fresh topic distinct from everything used so far.
-- Same as `/studio`, a successful automated post also emails the owner a copy of the new story and posts to the Facebook Page and Instagram. The daily Vercel run does **not** post to YouTube (video rendering needs `ffmpeg-static`, which exceeds Vercel's serverless limits) — YouTube auto-post runs from `/studio` publish and the manual GitHub Actions fallback only.
+- The story is written by the **story agent** (§3.13). Premises are drawn from a curated seed pool (`shared/utils/topic-pool.ts`, ~60 premises spread across the six categories) without repeats, tracked via a Supabase `used_topics` table, and handed to the agent as the premise to build on. Once the pool is exhausted the agent chooses its own premise from what the catalog is missing.
+- Same as `/studio`, a successful automated post also emails the owner a copy of the new story and is shared on the Facebook Page and Instagram by the **social agent** (§3.13). The daily Vercel run does **not** post to YouTube (video rendering needs `ffmpeg-static`, which exceeds Vercel's serverless limits) — YouTube auto-post runs from `/studio` publish and the manual GitHub Actions fallback only.
 
 ### 3.9 New-story email notification
 - Every time a story is published by AI (`/studio` publish or the daily automated job), a copy is emailed to the owner (`zia.flutter@gmail.com`) — title, excerpt, category/age/read-time, the full story text, and a link to the live story page.
@@ -124,14 +124,14 @@ Modeled closely on the reference layout:
 - A recomputed cover image (see §8) is embedded at the top of the email — the story detail page also gained an `ogImage` meta tag using the same cover image, for good link-preview cards wherever a story URL is shared (Facebook included — see §3.10).
 
 ### 3.10 Facebook auto-post
-- Every time a story is published by AI (`/studio` or the automated job), it's also posted to the Kidstory Facebook Page — a short message (title + emoji + excerpt) plus a link back to the live story page. Facebook unfurls the link into a preview card using the story page's Open Graph tags (title, description, cover image).
-- Posted via the Facebook Graph API (`shared/utils/facebook.ts`'s `postStoryToFacebook()`, same framework-agnostic pattern as `notify.ts`) using a permanent Page Access Token (`FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_ACCESS_TOKEN`) — no ongoing OAuth flow or token refresh needed once set up.
+- Every time a story is published by AI (`/studio` or the automated job), it's also posted to the Kidstory Facebook Page: a short message written for parents by the social agent (§3.13), plus a link back to the live story page. Facebook unfurls the link into a preview card using the story page's Open Graph tags (title, description, cover image).
+- Posted via the Facebook Graph API from kidstory-api (`app/social.py`, called by the social agent's `post_to_facebook` tool), using a permanent Page Access Token (`FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_ACCESS_TOKEN`, set on the API). No ongoing OAuth flow or token refresh is needed once set up.
 - Never blocks or fails a publish — a posting failure is logged, not thrown.
 
 ### 3.11 Instagram auto-post
-- Every time a story is published by AI (`/studio` or the automated job), it's also posted to the Kidstory Instagram account (`@kidstory64`) as a single-image feed post: the story's cover image with a caption (title + emoji + excerpt + the story URL as plain text + a "link in bio" nudge + a small hashtag set).
+- Every time a story is published by AI (`/studio` or the automated job), it's also posted to the Kidstory Instagram account (`@kidstory64`) as a single-image feed post: the story's cover image with a caption written by the social agent (§3.13). The caption has a hook, a line about the story, the story URL as plain text with a "link in bio" nudge, and a few relevant hashtags.
 - Unlike Facebook, Instagram **requires media on every post** and its caption links are **not tappable** — so the post always uses the recomputed cover image (same formula as the email, see §8) and the URL is text-only. Set the account's bio link to the site for a working path.
-- Posted via the Instagram Graph API (`shared/utils/instagram.ts`'s `postStoryToInstagram()`, same framework-agnostic pattern as `facebook.ts`), a two-step create-container → poll-status → publish flow, using a permanent Page Access Token scoped with `instagram_basic` + `instagram_content_publish` (`INSTAGRAM_ACCOUNT_ID` / `INSTAGRAM_ACCESS_TOKEN`). The Instagram account is a Business account linked to the Kidstory Facebook Page; the token is the Page token, not a separate Instagram login.
+- Posted via the Instagram Graph API from kidstory-api (`app/social.py`, called by the social agent's `post_to_instagram` tool), a two-step create-container → poll-status → publish flow, using a permanent Page Access Token scoped with `instagram_basic` + `instagram_content_publish` (`INSTAGRAM_ACCOUNT_ID` / `INSTAGRAM_ACCESS_TOKEN`). The Instagram account is a Business account linked to the Kidstory Facebook Page; the token is the Page token, not a separate Instagram login.
 - Never blocks or fails a publish — a posting failure is logged, not thrown.
 
 ### 3.12 YouTube auto-post
@@ -142,6 +142,13 @@ Modeled closely on the reference layout:
 - Never blocks or fails a publish — an upload failure is logged, not thrown; temp files are cleaned in a `finally`.
 
 ---
+
+### 3.13 AI agents
+Two Claude agents run on kidstory-api (§10), built on the Anthropic SDK's tool runner. Each one decides its own steps: it calls tools, reads what they return, and keeps going until the job is done.
+- **Story agent** (`POST /agents/story`) writes the daily automated story (§3.8). It looks at the catalog (story counts per category and age range, newest titles), picks a category and age range the catalog is short on unless they're given, searches the catalog so the premise isn't a near-copy, then writes every field of the story and submits it. The submission is checked against the catalog's rules: 2–4 paragraphs, 150–450 words, a valid category and age range, a title that isn't taken, 1–4 tags, and a short excerpt. Problems go back to the agent to fix. The `/studio` chat keeps using the single-call generator (`POST /stories/generate`), because a person is steering there and one fast call fits better.
+- **Social agent** (`POST /agents/social`) shares a published story on Facebook and Instagram (§3.10, §3.11). It reads the story and checks each account's last few posts so the new one doesn't repeat them. It then writes a post that suits each platform (Facebook: a short message for parents; Instagram: a caption with the URL as text and hashtags) and publishes it. The server fixes the link and the image, so the agent controls only the words. The post tools enforce each platform's limits and require the story URL in the Instagram caption. Each platform gets at most one post per run and two attempts. A `dryRun` mode writes the posts without publishing them. The posts never address children directly or ask them to do anything online.
+- YouTube (§3.12) isn't part of the social agent, because its upload renders a video with ffmpeg in the Nuxt app. Its title and description stay template-based.
+- Like the rest of the publish pipeline, an agent failure never blocks a publish that already happened: a social agent failure is logged, and a story agent failure means no story that day (the cron returns an error).
 
 ## 4. Component Inventory (Nuxt + Tailwind)
 
@@ -288,7 +295,9 @@ from the Nuxt server via `KIDSTORY_API_URL` (default `http://localhost:8000`) an
   API, and a story created through the API appears on the site.
 - **Endpoints.** `GET /health`, `GET /categories`, `GET /stories` (filters: `category`,
   `ageRange`, `tag`, `q` search, `limit`/`offset`), `GET /stories/{slug}`, plus
-  `POST /stories`, `PATCH /stories/{slug}` and `DELETE /stories/{slug}`. Responses are
+  `POST /stories`, `PATCH /stories/{slug}` and `DELETE /stories/{slug}`, plus
+  `POST /stories/generate` (one-call drafting for `/studio`) and the two agents,
+  `POST /agents/story` and `POST /agents/social` (§3.13). Responses are
   camelCase (the `Story` shape the Nuxt pages consume).
 - **Auth.** Reads are public, like the site. Writes require an `X-API-Key` header matching
   `KIDSTORY_API_KEY` (a secret belonging to the API, unrelated to Supabase Auth). Reading a
@@ -300,8 +309,11 @@ from the Nuxt server via `KIDSTORY_API_URL` (default `http://localhost:8000`) an
 - **Derived fields on create.** Slug (same `slugify()` rule, `-2`/`-3`… on collision), cover
   image URL (a Python port of the Pollinations formula in §8), and `published_at` are derived
   when omitted; new stories default to `is_premium = true`, per §9.
-- **Not in scope.** The API only writes to the database. It does not run the AI authoring
-  (§3.7), the owner email (§3.9), or the Facebook/Instagram/YouTube auto-posts (§3.10–3.12) —
-  those stay in the Nuxt publish pipeline and the daily cron.
+- **AI lives here.** Every Claude call runs on the API: `/studio` drafting, the story agent and
+  the social agent, which also holds the Facebook/Instagram tokens and posts to them. The Nuxt
+  app never talks to a model provider.
+- **Not in scope.** The owner email (§3.9), the YouTube upload (§3.12), topic bookkeeping
+  (`used_topics`) and the orchestration of the daily run stay in the Nuxt publish pipeline and
+  the daily cron.
 - **Stack.** Python 3.12, FastAPI, `supabase-py`, pydantic-settings, uvicorn; pytest suite runs
   against an in-memory Supabase fake (no credentials, no network).

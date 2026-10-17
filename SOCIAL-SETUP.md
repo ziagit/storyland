@@ -3,10 +3,15 @@
 How the Kidstory social auto-posting was set up, and how to redo it if a credential is
 ever revoked.
 
-Every AI-published story (`/studio` or `scripts/daily-post.ts`) posts to:
-- the **Facebook Page** — message + link, unfurled into a preview card (`shared/utils/facebook.ts`)
-- the **Instagram account** (`@kidstory64`) — cover image + caption, single-image feed post (`shared/utils/instagram.ts`)
-- the **YouTube channel** — a silent ~25s 1080p video of the cover image (`shared/utils/youtube.ts`)
+Every AI-published story (`/studio`, the Vercel Cron job or `scripts/daily-post.ts`) posts to:
+- the **Facebook Page**: message + link, unfurled into a preview card
+- the **Instagram account** (`@kidstory64`): cover image + caption, single-image feed post
+- the **YouTube channel**: a silent ~25s 1080p video of the cover image (`shared/utils/youtube.ts`)
+
+Facebook and Instagram are handled by the **social agent** on kidstory-api
+(`POST /agents/social`). Claude writes a post for each platform and publishes it
+(`app/agents/social_agent.py`, Graph API calls in `app/social.py`). Their tokens
+therefore live on **kidstory-api**, not on this app. YouTube is still posted from here.
 
 Facebook + Instagram use **one permanent Facebook Page access token** with Instagram
 scopes added (Instagram publishing goes through the Facebook Graph API because the IG
@@ -221,12 +226,17 @@ https://graph.facebook.com/v21.0/17841436819683930?fields=id,username,media_coun
 
 ## Part D — Put the values into the project
 
-### D1. Local `.env`
+### D1. Local `.env` files
+kidstory-api's `.env` (the social agent posts with these):
 ```
 FACEBOOK_PAGE_ID=1354300511092158
 FACEBOOK_PAGE_ACCESS_TOKEN=<permanent page token>
 INSTAGRAM_ACCOUNT_ID=17841436819683930
 INSTAGRAM_ACCESS_TOKEN=<permanent page token>
+SITE_URL=https://storyland-sigma.vercel.app
+```
+This app's `.env`:
+```
 YOUTUBE_CLIENT_ID=<oauth client id>
 YOUTUBE_CLIENT_SECRET=<oauth client secret>
 YOUTUBE_REFRESH_TOKEN=<from scripts/youtube-auth.mjs>
@@ -236,7 +246,8 @@ SITE_URL=https://storyland-sigma.vercel.app
 link/image server-side and cannot reach `http://localhost:3000`.
 
 ### D2. Vercel (Project → Settings → Environment Variables)
-Add the same `FACEBOOK_*` / `INSTAGRAM_*` / `YOUTUBE_*` vars (Vercel's env store is
+Add the `FACEBOOK_*` / `INSTAGRAM_*` vars (and `ANTHROPIC_API_KEY`) to the
+**kidstory-api** project, and the `YOUTUBE_*` vars to this one (Vercel's env store is
 separate from local `.env`). `SITE_URL` there can be left unset — the deployed origin is
 public anyway. **Note:** the YouTube step renders video with `ffmpeg-static` (~80 MB
 binary) and may exceed Vercel's serverless bundle limit — YouTube upload is expected to
@@ -246,16 +257,16 @@ fatal) on Vercel.
 ### D3. GitHub Actions (repo → Settings → Secrets and variables → Actions)
 `.github/workflows/auto-post.yml` reads these as secrets:
 ```
-FACEBOOK_PAGE_ID, FACEBOOK_PAGE_ACCESS_TOKEN,
-INSTAGRAM_ACCOUNT_ID, INSTAGRAM_ACCESS_TOKEN,
 YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN
 ```
+(Facebook and Instagram are posted by the API's social agent, so the job no longer needs
+their tokens.)
 (plus the pre-existing `KIDSTORY_API_URL`, `KIDSTORY_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `NOTIFY_EMAILS`, `SITE_URL`).
 
 ### D4. Instagram bio link
 Set `@kidstory64`'s **bio link** to the site — Instagram captions can't have tappable
-links, so `shared/utils/instagram.ts` writes "tap the link in our bio".
+links, so the social agent is told to point readers to the link in the bio.
 
 ---
 
@@ -263,15 +274,22 @@ links, so `shared/utils/instagram.ts` writes "tap the link in our bio".
 
 | | Facebook | Instagram | YouTube |
 |---|---|---|---|
-| File | `shared/utils/facebook.ts` | `shared/utils/instagram.ts` | `shared/utils/youtube.ts` |
+| File | kidstory-api `app/social.py` (via the social agent) | kidstory-api `app/social.py` (via the social agent) | `shared/utils/youtube.ts` |
+| Text | written by the social agent | written by the social agent (must include the story URL) | title/excerpt template |
 | Auth | permanent Page token | permanent Page token | OAuth2 refresh token (`googleapis`) |
 | Call | 1× `POST /{page-id}/feed` (`message` + `link`) | `POST /{ig-id}/media` → poll `status_code` → `POST /{ig-id}/media_publish` | render MP4 with `ffmpeg-static` → `youtube.videos.insert` |
 | Media | link preview card (story page OG tags) | the story's cover image (`buildCoverImageUrl`), required | silent ~25s 1080p video of the cover image, letterboxed |
 | Failure | logged, never throws — a publish never fails because a post failed | same | same (temp files cleaned in `finally`) |
 
-The Facebook and Instagram modules call `dns.setDefaultResultOrder('ipv4first')` because
-this machine resolves `graph.facebook.com` to an unroutable IPv6 address first
-(`ENETUNREACH` otherwise); `youtube.ts` does the same as a precaution.
+`app/social.py` forces IPv4 (an httpx transport bound to `0.0.0.0`) because this machine
+resolves `graph.facebook.com` to an unroutable IPv6 address first (`ENETUNREACH`
+otherwise); `youtube.ts` calls `dns.setDefaultResultOrder('ipv4first')` for the same reason.
+
+The social agent also reads each account's last few posts (`GET /{page-id}/posts`,
+`GET /{ig-id}/media`) so a new post doesn't repeat the last ones. That needs
+`pages_read_engagement`. As of 2026-10-17 the token in use lacked it (Graph API: "Any of the
+pages_read_engagement … permission(s) must be granted"), so the agent writes without that
+history until the token is regenerated with the scopes in C1.
 
 All three are called in sequence after a successful publish in
 `server/api/studio/publish.post.ts` and `scripts/daily-post.ts`, alongside the
