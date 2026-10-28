@@ -102,6 +102,27 @@ export interface SocialAgentResult {
   steps: AgentStep[]
 }
 
+export interface SupportAgentInput {
+  // What the reader just typed into the chat bubble.
+  message: string
+  // Earlier turns of the chat, as returned by the last call.
+  history?: ChatMessage[]
+}
+
+export interface SupportHandoff {
+  summary: string
+  // What the reader gave; null when they're signed in (their account email applies).
+  contactEmail: string | null
+}
+
+export interface SupportAgentResult {
+  reply: string
+  // Set when the agent handed the conversation to the owner this turn.
+  handoff: SupportHandoff | null
+  steps: AgentStep[]
+  history: ChatMessage[]
+}
+
 export interface Category {
   slug: string
   label: string
@@ -224,6 +245,20 @@ export function runStoryAgent(config: KidstoryApiConfig, input: StoryAgentInput 
 /** Runs the social agent (`POST /agents/social`): it writes and publishes posts for a published story. */
 export function runSocialAgent(config: KidstoryApiConfig, input: SocialAgentInput): Promise<SocialAgentResult> {
   return request<SocialAgentResult>(config, '/agents/social', { method: 'POST', body: input, requireApiKey: true })
+}
+
+/** Runs the support agent (`POST /agents/support`) on one chat message. Read-only; a handoff is for the caller to deliver. */
+export function runSupportAgent(
+  config: KidstoryApiConfig,
+  input: SupportAgentInput,
+  readerToken?: string | null
+): Promise<SupportAgentResult> {
+  return request<SupportAgentResult>(config, '/agents/support', {
+    method: 'POST',
+    body: input,
+    readerToken,
+    requireApiKey: true
+  })
 }
 
 export function updateStory(config: KidstoryApiConfig, slug: string, changes: StoryUpdateInput): Promise<Story> {

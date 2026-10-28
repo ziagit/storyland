@@ -6,5 +6,8 @@
       <NuxtPage />
     </main>
     <AppFooter />
+    <ClientOnly>
+      <SupportChat />
+    </ClientOnly>
   </div>
 </template>
