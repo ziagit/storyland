@@ -84,6 +84,8 @@ export interface StoryAgentResult {
 
 export interface SocialAgentInput {
   slug: string
+  // What `slug` names: a story (the default) or a Book Picks digest.
+  kind?: 'story' | 'books'
   siteUrl?: string
   dryRun?: boolean
 }
@@ -98,6 +100,51 @@ export interface SocialPostResult {
 
 export interface SocialAgentResult {
   posts: SocialPostResult[]
+  notes: string
+  steps: AgentStep[]
+}
+
+export interface BookPick {
+  title: string
+  author: string
+  // e.g. "3-5" or "8-12", as the agent wrote it.
+  ages: string
+  why: string
+}
+
+export interface BookDigestSummary {
+  slug: string
+  title: string
+  emoji: string
+  excerpt: string
+  coverImageUrl: string | null
+  publishedAt: string
+}
+
+export interface BookDigest extends BookDigestSummary {
+  body: string[]
+  books: BookPick[]
+  sources: { title: string; url: string }[]
+}
+
+export interface BookDigestList {
+  total: number
+  limit: number
+  offset: number
+  items: BookDigestSummary[]
+}
+
+export interface BooksAgentInput {
+  // An angle to take ("picture books"). Left out, the agent picks one.
+  focus?: string
+  // Research and write, but don't save.
+  dryRun?: boolean
+}
+
+export interface BooksAgentResult {
+  digest: BookDigest
+  published: boolean
+  // The agent's one-line account of the angle it chose.
   notes: string
   steps: AgentStep[]
 }
@@ -245,6 +292,19 @@ export function runStoryAgent(config: KidstoryApiConfig, input: StoryAgentInput 
 /** Runs the social agent (`POST /agents/social`): it writes and publishes posts for a published story. */
 export function runSocialAgent(config: KidstoryApiConfig, input: SocialAgentInput): Promise<SocialAgentResult> {
   return request<SocialAgentResult>(config, '/agents/social', { method: 'POST', body: input, requireApiKey: true })
+}
+
+/** Runs the books agent (`POST /agents/books`): it researches what children's books are selling and publishes a digest. */
+export function runBooksAgent(config: KidstoryApiConfig, input: BooksAgentInput = {}): Promise<BooksAgentResult> {
+  return request<BooksAgentResult>(config, '/agents/books', { method: 'POST', body: input, requireApiKey: true })
+}
+
+export function listBookDigests(config: KidstoryApiConfig, page: { limit?: number; offset?: number } = {}): Promise<BookDigestList> {
+  return request<BookDigestList>(config, '/books', { query: { ...page } })
+}
+
+export function getBookDigest(config: KidstoryApiConfig, slug: string): Promise<BookDigest> {
+  return request<BookDigest>(config, `/books/${encodeURIComponent(slug)}`)
 }
 
 /** Runs the support agent (`POST /agents/support`) on one chat message. Read-only; a handoff is for the caller to deliver. */

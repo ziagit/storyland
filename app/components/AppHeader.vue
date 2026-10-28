@@ -8,6 +8,7 @@ const { user, hasAccess } = useAuth()
 const links = [
   { label: 'Home', to: '/' },
   { label: 'Stories', to: '/stories' },
+  { label: 'Book Picks', to: '/books' },
   { label: 'About', to: '/about' },
   { label: 'Contact', to: '/contact' }
 ]

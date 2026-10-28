@@ -9,12 +9,18 @@
 import { runSocialAgent, type KidstoryApiConfig } from './kidstory-api'
 
 /**
- * Shares a newly published story on Kidstory's social accounts via the social agent.
+ * Shares a newly published story (or, with `kind: 'books'`, a Book Picks digest) on
+ * Kidstory's social accounts via the social agent.
  * Never throws — a sharing failure should never block or fail the publish itself.
  */
-export async function shareStoryOnSocial(api: KidstoryApiConfig, slug: string, siteUrl?: string): Promise<void> {
+export async function shareStoryOnSocial(
+  api: KidstoryApiConfig,
+  slug: string,
+  siteUrl?: string,
+  kind: 'story' | 'books' = 'story'
+): Promise<void> {
   try {
-    const result = await runSocialAgent(api, { slug, siteUrl })
+    const result = await runSocialAgent(api, { slug, siteUrl, kind })
     for (const post of result.posts) {
       if (post.status === 'posted') {
         console.log(`Social agent posted to ${post.platform} (${post.postId}).`)
