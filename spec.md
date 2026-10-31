@@ -107,7 +107,7 @@ Modeled closely on the reference layout:
 
 ### 3.7 Admin panel (`/admin`) and Studio (`/admin/studio`) — internal tools
 - Owner-only admin panel with its own layout (sidebar on desktop, tab bar on mobile; no public header/footer). The footer's "Studio →" button links to `/admin`. Sections:
-  - **Dashboard** (`/admin`): story count, stories published in the last 7 days, Book Picks digest count, stories missing a cover, the latest stories, a per-category breakdown, and a "Fill missing covers" tool.
+  - **Dashboard** (`/admin`): only the **agent machine**, an animated diagram of kidstory-api's four Claude agents (Story, Social, Books, Support). It shows what starts each one (Studio chat, the two daily crons, partner apps, site visitors), the hand-offs between them (Story and Books → Social), the tools each uses, and where the work lands (story catalog/website, Facebook, Instagram, Book Picks, the owner's inbox). Live figures on the cards: story count and last story date, digest count and last digest date. Hovering or clicking an agent highlights its wiring and explains what it does. Light theme, matching the site.
   - **Stories** (`/admin/stories`): the whole catalog with search and a category filter; view, edit (`/admin/stories/[slug]`: title, emoji, excerpt, body, category, age range, read time, tags, cover URL) and delete (with a confirmation dialog).
   - **Studio** (`/admin/studio`, old `/studio` redirects): the AI authoring chat described below.
   - **Book Picks** (`/admin/books`): read-only list of the books agent's digests.
