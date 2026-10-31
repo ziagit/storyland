@@ -24,6 +24,9 @@ const socials = [
         <p class="mt-3 text-sm text-ink-muted">
           Warm, gentle stories that help little readers grow braver, kinder, and more curious — one page at a time.
         </p>
+        <UiButton to="/studio" variant="primary" class="mt-5 !px-5 !py-2.5 text-sm">
+          Studio →
+        </UiButton>
       </div>
 
       <div class="flex gap-12">
@@ -33,11 +36,6 @@ const socials = [
             <li v-for="link in links" :key="link.to">
               <NuxtLink :to="link.to" class="text-ink-muted transition-colors hover:text-coral">
                 {{ link.label }}
-              </NuxtLink>
-            </li>
-            <li>
-              <NuxtLink to="/studio" class="text-ink-muted transition-colors hover:text-coral">
-                Studio
               </NuxtLink>
             </li>
           </ul>
