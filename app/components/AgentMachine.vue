@@ -16,6 +16,8 @@ interface Agent {
   name: string
   role: string
   color: string
+  // Darker shade of `color` for text on white.
+  ink: string
   x: number
   y: number
   w: number
@@ -29,6 +31,7 @@ const agents: Agent[] = [
     name: 'Story agent',
     role: 'Writes every story',
     color: '#3E9B76',
+    ink: '#2F6F58',
     x: 250,
     y: 30,
     w: 250,
@@ -41,6 +44,7 @@ const agents: Agent[] = [
     name: 'Social agent',
     role: 'Shares new work',
     color: '#E36656',
+    ink: '#C2493A',
     x: 580,
     y: 140,
     w: 200,
@@ -53,6 +57,7 @@ const agents: Agent[] = [
     name: 'Books agent',
     role: 'Researches bestsellers',
     color: '#D9A441',
+    ink: '#8A5F0E',
     x: 250,
     y: 250,
     w: 250,
@@ -65,6 +70,7 @@ const agents: Agent[] = [
     name: 'Support agent',
     role: 'Helps readers',
     color: '#5BA3C9',
+    ink: '#2B6F96',
     x: 250,
     y: 470,
     w: 250,
@@ -129,18 +135,18 @@ const wires: Wire[] = [
 // Hover (or keyboard focus) previews an agent; a click pins it so the description stays.
 const hovered = ref<AgentId | null>(null)
 const pinned = ref<AgentId | null>(null)
-const labels: { text: string; x: number; y: number; color: string; agents: AgentId[] }[] = [
-  { text: 'new story', x: 512, y: 70, color: '#3E9B76', agents: ['story', 'social'] },
-  { text: 'new digest', x: 506, y: 287, color: '#D9A441', agents: ['books', 'social'] },
-  { text: 'digest', x: 640, y: 359, color: '#D9A441', agents: ['books'] },
-  { text: 'reads', x: 520, y: 530, color: '#5BA3C9', agents: ['support'] },
-  { text: 'needs you', x: 640, y: 589, color: '#5BA3C9', agents: ['support'] }
+const labels: { text: string; x: number; y: number; ink: string; agents: AgentId[] }[] = [
+  { text: 'new story', x: 512, y: 70, ink: '#2F6F58', agents: ['story', 'social'] },
+  { text: 'new digest', x: 506, y: 287, ink: '#8A5F0E', agents: ['books', 'social'] },
+  { text: 'digest', x: 640, y: 359, ink: '#8A5F0E', agents: ['books'] },
+  { text: 'reads', x: 520, y: 530, ink: '#2B6F96', agents: ['support'] },
+  { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] }
 ]
 
 const active = computed(() => hovered.value ?? pinned.value)
 const togglePin = (id: AgentId) => (pinned.value = pinned.value === id ? null : id)
 const selected = computed(() => agents.find((a) => a.id === active.value) ?? null)
-const wireOpacity = (w: Wire) => (!active.value ? 0.55 : w.agents.includes(active.value) ? 1 : 0.12)
+const wireOpacity = (w: Wire) => (!active.value ? 0.85 : w.agents.includes(active.value) ? 1 : 0.12)
 // An agent stays lit when it's wired to the highlighted one (e.g. Books → Social).
 const linked = computed(() => new Set(wires.filter((w) => active.value && w.agents.includes(active.value)).flatMap((w) => w.agents)))
 const cardOpacity = (id: AgentId) => (!active.value || linked.value.has(id) || active.value === id ? 1 : 0.45)
@@ -174,8 +180,8 @@ const statLine = (id: AgentId) => {
         <p class="mt-1 text-sm text-ink-muted">Four Claude agents in kidstory-api and how work flows between them. Hover an agent to trace its wiring.</p>
       </div>
       <div class="flex flex-wrap gap-3 text-xs font-semibold text-ink-muted">
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm border border-tan bg-white" /> Triggers</span>
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm border-2 border-navy/40 bg-white" /> Agents</span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-white shadow" /> Triggers</span>
+        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded bg-white shadow-md" /> Agents</span>
         <span class="flex items-center gap-1.5"><span class="h-0 w-4 border-t-2 border-dashed border-navy/40" /> Reads</span>
       </div>
     </div>
@@ -187,14 +193,17 @@ const statLine = (id: AgentId) => {
             <circle cx="1" cy="1" r="1" fill="#1B3B5F" opacity="0.07" />
           </pattern>
           <path v-for="w in wires" :id="`am-${w.id}`" :key="w.id" :d="w.d" />
-          <filter id="am-shadow" x="-10%" y="-10%" width="120%" height="130%">
-            <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#5B5347" flood-opacity="0.14" />
+          <filter id="am-shadow" x="-15%" y="-20%" width="130%" height="150%">
+            <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#1B3B5F" flood-opacity="0.12" />
+          </filter>
+          <filter id="am-shadow-lift" x="-15%" y="-20%" width="130%" height="160%">
+            <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1B3B5F" flood-opacity="0.24" />
           </filter>
         </defs>
         <rect width="1000" height="630" fill="url(#am-grid)" />
 
         <!-- Column captions -->
-        <g font-size="10" font-weight="700" letter-spacing="1.5" fill="#1B3B5F" opacity="0.45">
+        <g font-size="10" font-weight="700" letter-spacing="1.5" fill="#1B3B5F" opacity="0.65">
           <text x="10" y="22">TRIGGERS</text>
           <text x="250" y="22">AGENTS</text>
           <text x="840" y="140">WHERE IT LANDS</text>
@@ -228,22 +237,22 @@ const statLine = (id: AgentId) => {
         <!-- Hand-off labels, on pills so they sit cleanly over crossing wires -->
         <g font-size="10.5" font-weight="700">
           <g v-for="l in labels" :key="l.text" :opacity="!active || l.agents.includes(active) ? 1 : 0.25" class="transition-opacity duration-300">
-            <rect :x="l.x - 6" :y="l.y - 12" :width="l.text.length * 6 + 12" height="17" rx="8.5" fill="#FFFFFF" :stroke="l.color" />
-            <text :x="l.x" :y="l.y" fill="#1B3B5F">{{ l.text }}</text>
+            <rect :x="l.x - 6" :y="l.y - 12" :width="l.text.length * 6 + 12" height="17" rx="8.5" fill="#FFFFFF" filter="url(#am-shadow)" />
+            <text :x="l.x" :y="l.y" :fill="l.ink">{{ l.text }}</text>
           </g>
         </g>
 
         <!-- Triggers -->
         <g v-for="t in triggers" :key="t.title">
-          <rect :x="t.x" :y="t.y" :width="t.w" height="40" rx="12" fill="#FFFFFF" stroke="#E9DAB8" stroke-width="1.5" />
+          <rect :x="t.x" :y="t.y" :width="t.w" height="40" rx="12" fill="#FFFFFF" filter="url(#am-shadow)" />
           <text :x="t.x + 12" :y="t.y + 17" font-size="12" font-weight="700" fill="#1B3B5F">{{ t.title }}</text>
           <text :x="t.x + 12" :y="t.y + 31" font-size="10" fill="#5B5347">{{ t.sub }}</text>
         </g>
 
         <!-- Story catalog (the shared database) -->
         <g :opacity="!active || active === 'story' || active === 'support' ? 1 : 0.45" class="transition-opacity duration-300">
-          <rect x="580" y="430" width="200" height="90" rx="16" fill="#FFFFFF" stroke="#3E9B76" stroke-width="1.5" />
-          <g transform="translate(606 458)" fill="none" stroke="#3E9B76" stroke-width="1.8">
+          <rect x="580" y="430" width="200" height="90" rx="16" fill="#FFFFFF" filter="url(#am-shadow)" />
+          <g transform="translate(606 458)" fill="none" stroke="#2F6F58" stroke-width="1.8">
             <ellipse cx="0" cy="0" rx="12" ry="4.5" />
             <path d="M-12,0 V18 A12,4.5 0 0 0 12,18 V0" />
             <path d="M-12,9 A12,4.5 0 0 0 12,9" />
@@ -269,7 +278,7 @@ const statLine = (id: AgentId) => {
           @click="togglePin(a.id)"
           @keydown.enter="togglePin(a.id)"
         >
-          <rect :x="a.x" :y="a.y" :width="a.w" :height="CARD_H" rx="18" fill="#FFFFFF" :stroke="active === a.id ? a.color : '#E9DAB8'" :stroke-width="active === a.id ? 3 : 1.5" filter="url(#am-shadow)" />
+          <rect :x="a.x" :y="a.y" :width="a.w" :height="CARD_H" rx="18" fill="#FFFFFF" :filter="active === a.id ? 'url(#am-shadow-lift)' : 'url(#am-shadow)'" />
           <rect :x="a.x" :y="a.y + 18" width="4" height="36" rx="2" :fill="a.color" />
 
           <!-- Gear -->
@@ -301,12 +310,12 @@ const statLine = (id: AgentId) => {
             font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
             fill="#1B3B5F"
           >{{ line }}</text>
-          <text :x="a.x + 16" :y="a.y + CARD_H - 10" font-size="10.5" font-weight="700" :fill="a.color">{{ statLine(a.id) }}</text>
+          <text :x="a.x + 16" :y="a.y + CARD_H - 10" font-size="10.5" font-weight="700" :fill="a.ink">{{ statLine(a.id) }}</text>
         </g>
 
         <!-- Outputs -->
         <g v-for="o in outputs" :key="o.title">
-          <rect :x="o.x" :y="o.y" :width="o.w" height="44" rx="12" fill="#FFFFFF" :stroke="o.color" stroke-opacity="0.7" />
+          <rect :x="o.x" :y="o.y" :width="o.w" height="44" rx="12" fill="#FFFFFF" filter="url(#am-shadow)" />
           <circle :cx="o.x + 16" :cy="o.y + 22" r="4" :fill="o.color" />
           <text :x="o.x + 28" :y="o.y + 19" font-size="12" font-weight="700" fill="#1B3B5F">{{ o.title }}</text>
           <text :x="o.x + 28" :y="o.y + 33" font-size="10" fill="#5B5347">{{ o.sub }}</text>
@@ -315,14 +324,14 @@ const statLine = (id: AgentId) => {
     </div>
 
     <!-- What the highlighted agent does -->
-    <div class="mt-2 border-t border-tan/70 pt-4">
+    <div class="mt-2 pt-2">
       <div class="flex flex-wrap gap-2">
         <button
           v-for="a in agents"
           :key="a.id"
           type="button"
-          class="flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors"
-          :class="pinned === a.id ? 'border-transparent bg-navy text-cream' : 'border-tan text-navy hover:border-navy/40'"
+          class="flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold shadow transition-all"
+          :class="pinned === a.id ? 'bg-navy text-cream shadow-md' : 'bg-white text-navy hover:shadow-md'"
           @click="togglePin(a.id)"
         >
           <span class="h-2 w-2 rounded-full" :style="{ background: a.color }" />
