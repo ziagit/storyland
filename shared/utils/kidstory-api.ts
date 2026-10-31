@@ -71,7 +71,7 @@ export type AgentRunSource = 'studio' | 'cron' | 'partner' | 'mcp'
 /** One agent run (or story publish) from `GET /agents/activity`. */
 export interface AgentRun {
   id: string
-  agent: 'story' | 'social' | 'books' | 'support'
+  agent: 'story' | 'social' | 'books' | 'support' | 'visitors'
   // 'run', or 'publish' for a story going live.
   action: string
   status: 'running' | 'done' | 'failed'
@@ -79,6 +79,55 @@ export interface AgentRun {
   detail: Record<string, any>
   startedAt: string
   finishedAt: string | null
+}
+
+/** Visitors and time on the site, from `GET /visitors/stats`. Times are in seconds. */
+export interface VisitorPeriod {
+  from: string
+  to: string
+  visitors: number
+  newVisitors: number
+  returningVisitors: number
+  visits: number
+  pageViews: number
+  totalSeconds: number
+  avgVisitSeconds: number
+  medianVisitSeconds: number
+  avgSecondsPerVisitor: number
+  // Share of visits that left after one page and under 10 seconds, 0 to 1.
+  bounceRate: number
+  // One entry per day in the owner's time zone (PKT), oldest first.
+  daily: { date: string; visitors: number; visits: number; avgVisitSeconds: number }[]
+  topPages: { path: string; visits: number; seconds: number; avgSeconds: number }[]
+  entryPages: { name: string; visits: number }[]
+  referrers: { name: string; visits: number }[]
+  devices: { name: string; visits: number }[]
+  countries: { name: string; visits: number }[]
+}
+
+export interface VisitorStats {
+  days: number
+  // Visitors seen in the last two minutes.
+  liveNow: number
+  allTime: {
+    visitors: number
+    visits: number
+    pageViews: number
+    totalSeconds: number
+    avgVisitSeconds: number
+    trackingSince: string | null
+  }
+  period: VisitorPeriod
+}
+
+export interface VisitorsAgentInput {
+  days?: number
+  question?: string
+}
+
+export interface VisitorsAgentResult {
+  report: string
+  steps: AgentStep[]
 }
 
 export interface AgentStep {
@@ -332,6 +381,16 @@ export function runSupportAgent(
     readerToken,
     requireApiKey: true
   })
+}
+
+/** Visitors and time on the site for the last `days` days, with all-time totals (`GET /visitors/stats`). */
+export function getVisitorStats(config: KidstoryApiConfig, days = 30): Promise<VisitorStats> {
+  return request<VisitorStats>(config, '/visitors/stats', { query: { days }, requireApiKey: true })
+}
+
+/** Runs the visitors agent (`POST /agents/visitors`): a short report on the visit numbers, or an answer to a question. */
+export function runVisitorsAgent(config: KidstoryApiConfig, input: VisitorsAgentInput = {}): Promise<VisitorsAgentResult> {
+  return request<VisitorsAgentResult>(config, '/agents/visitors', { method: 'POST', body: input, requireApiKey: true })
 }
 
 /** Agent runs and story publishes started in the last `seconds`, newest first. */

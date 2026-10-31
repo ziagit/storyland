@@ -146,3 +146,41 @@ create table if not exists public.agent_runs (
 );
 create index if not exists agent_runs_started_at_idx on public.agent_runs (started_at desc);
 alter table public.agent_runs enable row level security;
+
+-- Site visits from the visit tracker, read by kidstory-api's visitors agent (migration 006).
+create table if not exists public.site_visits (
+  id uuid primary key,
+  visitor_id uuid not null,
+  is_new boolean not null default true,
+  started_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  active_seconds integer not null default 0 check (active_seconds >= 0),
+  page_views integer not null default 1 check (page_views >= 0),
+  pages jsonb not null default '[]'::jsonb,
+  entry_path text not null,
+  referrer text,
+  device text check (device in ('mobile', 'tablet', 'desktop')),
+  country text
+);
+create index if not exists site_visits_started_at_idx on public.site_visits (started_at desc);
+create index if not exists site_visits_last_seen_at_idx on public.site_visits (last_seen_at desc);
+create index if not exists site_visits_visitor_id_idx on public.site_visits (visitor_id);
+alter table public.site_visits enable row level security;
+
+create or replace view public.site_visit_totals with (security_invoker = true) as
+select
+  count(distinct visitor_id)::int as visitors,
+  count(*)::int as visits,
+  coalesce(sum(page_views), 0)::int as page_views,
+  coalesce(sum(active_seconds), 0)::bigint as active_seconds,
+  min(started_at) as first_visit_at
+from public.site_visits;
+
+do $$
+begin
+  if to_regclass('public.agent_runs') is not null then
+    alter table public.agent_runs drop constraint if exists agent_runs_agent_check;
+    alter table public.agent_runs add constraint agent_runs_agent_check
+      check (agent in ('story', 'social', 'books', 'support', 'visitors'));
+  end if;
+end $$;

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// The admin dashboard's "agent machine": kidstory-api's four Claude agents drawn as
+// The admin dashboard's "agent machine": kidstory-api's five Claude agents drawn as
 // one machine — what starts each agent, what it hands to the others, and where its
 // work ends up. It stays still until an agent really runs: then that agent's gear
 // turns and data flows along the wires it is using, from the moment the run starts
 // until LINGER_MS after it ends, so even a 5-second run is easy to watch.
-// Hovering an agent lights up its wiring.
+// Hovering an agent lights up its wiring. The visit tracker's wire flows whenever
+// someone is on the site, since every visit is recorded without an agent run.
 import type { AgentRun } from '../../shared/utils/kidstory-api'
 
 const props = defineProps<{
@@ -16,9 +17,11 @@ const props = defineProps<{
   runs: AgentRun[]
   // The current time in ms on the server's clock (the runs' timestamps are server-side).
   now: number
+  // From GET /api/admin/visitors; null until loaded or when tracking isn't set up.
+  visitors?: { total: number; avgVisitSeconds: number; liveNow: number } | null
 }>()
 
-type AgentId = 'story' | 'social' | 'books' | 'support'
+type AgentId = 'story' | 'social' | 'books' | 'support' | 'visitors'
 
 interface Agent {
   id: AgentId
@@ -89,6 +92,19 @@ const agents: Agent[] = [
     tools: ['find_stories · story_details', 'hand_off_to_owner'],
     about:
       'Answers readers in the site’s chat bubble and recommends stories from the catalog. It can’t change anything; when something needs you, it hands the conversation off and you get an email.'
+  },
+  {
+    id: 'visitors',
+    name: 'Visitors agent',
+    role: 'Watches who visits',
+    color: '#8B6CC1',
+    ink: '#5E4594',
+    x: 250,
+    y: 640,
+    w: 250,
+    tools: ['visitor_stats · compare_periods', 'story_titles'],
+    about:
+      'A tracker on every page records each visit in the database: an anonymous browser id, the pages read, and how long the reader was really there (tab open and active). Your own browser isn’t counted. The Visitors page shows the totals, and when you ask, this agent reads them and writes you a short report: how many came, how long they stayed, which stories hold readers, and what changed.'
   }
 ]
 
@@ -107,7 +123,9 @@ const triggers: Node[] = [
   { x: 10, y: 85, w: 170, title: 'Morning cron', sub: 'daily · 07:00 PKT' },
   { x: 10, y: 130, w: 170, title: 'Partner apps', sub: 'API · MCP' },
   { x: 10, y: 300, w: 170, title: 'Evening cron', sub: 'daily · 19:00 PKT' },
-  { x: 10, y: 520, w: 170, title: 'Site visitors', sub: 'chat bubble' }
+  { x: 10, y: 520, w: 170, title: 'Site visitors', sub: 'chat bubble' },
+  { x: 10, y: 650, w: 170, title: 'Visit tracker', sub: 'every page view' },
+  { x: 10, y: 720, w: 170, title: 'You · Visitors page', sub: '/admin/visitors' }
 ]
 
 const outputs: (Node & { color: string })[] = [
@@ -116,7 +134,8 @@ const outputs: (Node & { color: string })[] = [
   { x: 840, y: 240, w: 150, title: 'YouTube', sub: 'when run locally', color: '#C4302B' },
   // Book Picks is a section of the website, so the digest lands there too.
   { x: 840, y: 333, w: 150, title: 'Website', sub: 'stories · Book Picks', color: '#3E9B76' },
-  { x: 840, y: 563, w: 150, title: 'Your inbox', sub: 'stories · hand-offs', color: '#5BA3C9' }
+  { x: 840, y: 563, w: 150, title: 'Your inbox', sub: 'stories · hand-offs', color: '#5BA3C9' },
+  { x: 840, y: 688, w: 150, title: 'Visitors page', sub: 'numbers · reports', color: '#8B6CC1' }
 ]
 
 interface Wire {
@@ -147,7 +166,11 @@ const wires: Wire[] = [
   { id: 'books-catalog', d: 'M500,345 C538,345 538,474 580,474', color: '#D9A441', agents: ['books'], dur: 2.6 },
   // A Studio publish also renders a short cover video and uploads it (the daily cron doesn't).
   { id: 'catalog-site', d: 'M780,450 C812,450 812,365 840,365', color: '#1B3B5F', agents: ['story', 'books'], halo: true, dur: 1.6 },
-  { id: 'support-inbox', d: 'M500,585 C670,585 670,585 840,585', color: '#5BA3C9', agents: ['support'], dur: 3 }
+  { id: 'support-inbox', d: 'M500,585 C670,585 670,585 840,585', color: '#5BA3C9', agents: ['support'], dur: 3 },
+  { id: 't-tracker', d: 'M180,670 C215,670 215,682 250,682', color: '#8B6CC1', agents: ['visitors'], dur: 2 },
+  { id: 't-owner', d: 'M180,740 C215,740 215,728 250,728', color: '#8B6CC1', agents: ['visitors'], dur: 2.2 },
+  { id: 'visitors-catalog', d: 'M500,680 C700,680 740,600 740,520', color: '#8B6CC1', agents: ['visitors'], dashed: true, halo: true, dur: 2.2 },
+  { id: 'visitors-page', d: 'M500,730 C670,730 670,710 840,710', color: '#8B6CC1', agents: ['visitors'], dur: 2.6 }
 ]
 
 // Hover (or keyboard focus) previews an agent; a click pins it so the description stays.
@@ -158,7 +181,9 @@ const labels: { text: string; x: number; y: number; ink: string; agents: AgentId
   { text: 'new digest', x: 506, y: 287, ink: '#8A5F0E', agents: ['books', 'social'] },
   { text: 'reads', x: 520, y: 530, ink: '#2B6F96', agents: ['support'] },
   { text: 'email', x: 800, y: 498, ink: '#C2493A', agents: ['social'] },
-  { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] }
+  { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] },
+  { text: 'visits', x: 548, y: 676, ink: '#5E4594', agents: ['visitors'] },
+  { text: 'report', x: 700, y: 724, ink: '#5E4594', agents: ['visitors'] }
 ]
 
 // --- live activity ---------------------------------------------------------
@@ -190,6 +215,8 @@ function wiresFor(run: AgentRun): string[] {
       return ['t-evening', ...(d.published ? ['books-catalog', 'catalog-site'] : [])]
     case 'support':
       return ['t-readers', 'support-catalog', ...(d.handoff ? ['support-inbox'] : [])]
+    case 'visitors':
+      return ['t-owner', 'visitors-catalog', 'visitors-page']
   }
   return []
 }
@@ -198,6 +225,8 @@ const liveRuns = computed(() => props.runs.filter(isLive))
 const liveWires = computed(() => new Set(liveRuns.value.flatMap(wiresFor)))
 const working = computed(() => new Set(liveRuns.value.filter((r) => r.action === 'run').map((r) => r.agent)))
 const busy = computed(() => liveWires.value.size > 0 || working.value.size > 0)
+// Wires with data moving: the live runs', plus the tracker's while anyone is on the site.
+const flowing = computed(() => (props.visitors?.liveNow ? new Set([...liveWires.value, 't-tracker']) : liveWires.value))
 
 const SOURCE_LABEL: Record<string, string> = { studio: 'from the Studio', cron: 'on the morning cron', partner: 'for a partner app', mcp: 'over MCP' }
 const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id
@@ -217,6 +246,8 @@ function describe(run: AgentRun): string {
       return run.status === 'running' ? 'Books agent is researching bestsellers' : `Books agent ${verb}`
     case 'support':
       return run.status === 'running' ? 'Support agent is answering a reader' : d.handoff ? 'Support agent handed a chat to you' : 'Support agent answered a reader'
+    case 'visitors':
+      return run.status === 'running' ? 'Visitors agent is reading the numbers' : `Visitors agent ${verb === 'finished' ? 'wrote a report' : verb}`
   }
   return `${agentName(run.agent)} ${verb}`
 }
@@ -241,7 +272,7 @@ const selected = computed(() => agents.find((a) => a.id === active.value) ?? nul
 const wireOpacity = (w: Wire) => {
   if (active.value) return w.agents.includes(active.value) ? 1 : 0.12
   // While something runs, the wires it isn't using step back.
-  if (busy.value) return liveWires.value.has(w.id) ? 1 : 0.3
+  if (busy.value) return flowing.value.has(w.id) ? 1 : 0.3
   return 0.85
 }
 // An agent stays lit when it's wired to the highlighted one (e.g. Books → Social).
@@ -254,6 +285,7 @@ onMounted(() => {
   animate.value = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
 })
 
+const visitLength = (seconds: number) => `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, '0')}s`
 const shortDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—')
 const statLine = (id: AgentId) => {
   switch (id) {
@@ -263,6 +295,9 @@ const statLine = (id: AgentId) => {
       return `Last digest ${shortDate(props.lastDigestAt)} · ${props.digestCount} total`
     case 'social':
       return 'Runs after every publish'
+    case 'visitors':
+      if (!props.visitors) return 'Reports when you ask'
+      return `${props.visitors.total.toLocaleString()} visitors · avg ${visitLength(props.visitors.avgVisitSeconds)} a visit`
     default:
       return 'Answers on demand'
   }
@@ -274,7 +309,7 @@ const statLine = (id: AgentId) => {
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="font-heading text-2xl font-extrabold text-navy sm:text-3xl">Agent machine</h1>
-        <p class="mt-1 text-sm text-ink-muted">Four Claude agents in kidstory-api and how work flows between them. Hover an agent to trace its wiring.</p>
+        <p class="mt-1 text-sm text-ink-muted">Five Claude agents in kidstory-api and how work flows between them. Hover an agent to trace its wiring.</p>
         <p class="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold" aria-live="polite">
           <span class="relative flex h-2.5 w-2.5">
             <span v-if="busy" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green opacity-60" />
@@ -297,7 +332,7 @@ const statLine = (id: AgentId) => {
     </div>
 
     <div class="-mx-4 overflow-x-auto px-4 pb-2 pt-4 sm:mx-0 sm:px-0">
-      <svg viewBox="0 0 1000 630" class="block w-full min-w-[760px]" role="img" aria-label="Diagram of the story, social, books and support agents and how they connect">
+      <svg viewBox="0 0 1000 800" class="block w-full min-w-[760px]" role="img" aria-label="Diagram of the story, social, books, support and visitors agents and how they connect">
         <defs>
           <pattern id="am-grid" width="22" height="22" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="1" fill="#1B3B5F" opacity="0.07" />
@@ -310,7 +345,7 @@ const statLine = (id: AgentId) => {
             <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1B3B5F" flood-opacity="0.24" />
           </filter>
         </defs>
-        <rect width="1000" height="630" fill="url(#am-grid)" />
+        <rect width="1000" height="800" fill="url(#am-grid)" />
 
         <!-- Column captions -->
         <g font-size="10" font-weight="700" letter-spacing="1.5" fill="#1B3B5F" opacity="0.65">
@@ -336,7 +371,7 @@ const statLine = (id: AgentId) => {
 
         <!-- Data flowing along the wires a live run is using -->
         <g v-if="animate">
-          <template v-for="w in wires.filter((w) => liveWires.has(w.id))" :key="`dots-${w.id}`">
+          <template v-for="w in wires.filter((w) => flowing.has(w.id))" :key="`dots-${w.id}`">
             <circle v-for="n in 2" :key="n" r="4.5" :fill="w.color">
               <animateMotion :dur="`${w.dur}s`" :begin="`${(n - 1) * (w.dur / 2)}s`" repeatCount="indefinite">
                 <mpath :href="`#am-${w.id}`" />
@@ -357,11 +392,11 @@ const statLine = (id: AgentId) => {
         <g v-for="t in triggers" :key="t.title">
           <rect :x="t.x" :y="t.y" :width="t.w" height="40" rx="12" fill="#FFFFFF" filter="url(#am-shadow)" />
           <text :x="t.x + 12" :y="t.y + 17" font-size="12" font-weight="700" fill="#1B3B5F">{{ t.title }}</text>
-          <text :x="t.x + 12" :y="t.y + 31" font-size="10" fill="#5B5347">{{ t.sub }}</text>
+          <text :x="t.x + 12" :y="t.y + 31" font-size="10" fill="#5B5347">{{ t.title === 'Visit tracker' && visitors?.liveNow ? `${visitors.liveNow} on the site now` : t.sub }}</text>
         </g>
 
         <!-- The shared database: stories and Book Picks digests -->
-        <g :opacity="!active || active === 'story' || active === 'books' || active === 'support' ? 1 : 0.45" class="transition-opacity duration-300">
+        <g :opacity="!active || active !== 'social' ? 1 : 0.45" class="transition-opacity duration-300">
           <rect x="580" y="430" width="200" height="90" rx="16" fill="#FFFFFF" filter="url(#am-shadow)" />
           <g transform="translate(606 458)" fill="none" stroke="#2F6F58" stroke-width="1.8">
             <ellipse cx="0" cy="0" rx="12" ry="4.5" />
@@ -370,6 +405,7 @@ const statLine = (id: AgentId) => {
           </g>
           <text x="628" y="459" font-size="13.5" font-weight="700" fill="#1B3B5F">Database</text>
           <text x="628" y="476" font-size="10.5" fill="#5B5347">{{ storyCount }} stories · {{ digestCount }} digests</text>
+          <text v-if="visitors" x="628" y="490" font-size="10.5" fill="#5B5347">{{ visitors.total.toLocaleString() }} visitors tracked</text>
           <text x="628" y="505" font-size="10" fill="#5B5347" opacity="0.7">Supabase via kidstory-api</text>
         </g>
 
@@ -453,7 +489,8 @@ const statLine = (id: AgentId) => {
         <template v-if="selected">{{ selected.about }}</template>
         <template v-else>
           Triggers on the left start an agent. The Story and Books agents hand finished work to the Social agent, which shares it.
-          Stories and Book Picks digests are saved to the database, which the website and the Support agent read from. The Social agent shares each one, and emails you every new story. Pick an agent to see what it does.
+          Stories and Book Picks digests are saved to the database, which the website and the Support agent read from. The Social agent shares each one, and emails you every new story.
+          Every visit to the site is recorded there too, and the Visitors agent reads those numbers when you ask. Pick an agent to see what it does.
         </template>
       </p>
     </div>

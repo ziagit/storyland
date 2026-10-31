@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AgentRun, StorySummary, BookDigestList } from '../../../shared/utils/kidstory-api'
+import type { AgentRun, StorySummary, BookDigestList, VisitorStats } from '../../../shared/utils/kidstory-api'
 
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: 'Dashboard', robots: 'noindex, nofollow' })
@@ -7,10 +7,17 @@ useSeoMeta({ title: 'Dashboard', robots: 'noindex, nofollow' })
 const adminFetch = useAdminApi()
 
 // What the agent machine shows on its cards: story count and last story,
-// digest count and last digest.
+// digest count and last digest, visitors and who's on the site now.
 const stories = ref<StorySummary[]>([])
 const digests = ref<BookDigestList | null>(null)
+const visitors = ref<{ total: number; avgVisitSeconds: number; liveNow: number } | null>(null)
 const error = ref('')
+
+// Missing visitor numbers (tracking not set up yet) just leave the card's default line.
+async function loadVisitors() {
+  const stats = await adminFetch<VisitorStats>('/api/admin/visitors', { query: { days: 7 } }).catch(() => null)
+  visitors.value = stats && { total: stats.allTime.visitors, avgVisitSeconds: stats.allTime.avgVisitSeconds, liveNow: stats.liveNow }
+}
 
 async function loadCounts() {
   try {
@@ -52,8 +59,11 @@ async function pollActivity() {
 
 let pollTimer: ReturnType<typeof setInterval> | undefined
 let clockTimer: ReturnType<typeof setInterval> | undefined
+let visitorsTimer: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
   loadCounts()
+  loadVisitors()
+  visitorsTimer = setInterval(() => document.visibilityState === 'visible' && loadVisitors(), 60_000)
   pollActivity()
   pollTimer = setInterval(pollActivity, POLL_MS)
   clockTimer = setInterval(() => (now.value = Date.now() + clockOffset.value), 250)
@@ -61,6 +71,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   clearInterval(pollTimer)
   clearInterval(clockTimer)
+  clearInterval(visitorsTimer)
 })
 </script>
 
@@ -77,6 +88,7 @@ onBeforeUnmount(() => {
       :last-digest-at="digests?.items[0]?.publishedAt ?? null"
       :runs="runs"
       :now="now"
+      :visitors="visitors"
     />
   </div>
 </template>

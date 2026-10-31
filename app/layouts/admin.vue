@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LayoutDashboard, BookOpen, Wand2, Library, ExternalLink, LogOut } from '@lucide/vue'
+import { LayoutDashboard, BookOpen, Wand2, Library, Users, ExternalLink, LogOut } from '@lucide/vue'
 
 const { user, signOut } = useAuth()
 
@@ -7,7 +7,8 @@ const nav = [
   { label: 'Dashboard', to: '/admin', icon: LayoutDashboard, exact: true },
   { label: 'Stories', to: '/admin/stories', icon: BookOpen, exact: false },
   { label: 'Studio', to: '/admin/studio', icon: Wand2, exact: false },
-  { label: 'Book Picks', to: '/admin/books', icon: Library, exact: false }
+  { label: 'Book Picks', to: '/admin/books', icon: Library, exact: false },
+  { label: 'Visitors', to: '/admin/visitors', icon: Users, exact: false }
 ]
 
 const route = useRoute()
