@@ -37,7 +37,7 @@ const agents: Agent[] = [
     w: 250,
     tools: ['catalog_overview · search_catalog', 'submit_story · decline_request'],
     about:
-      'Looks at the catalog to find categories and ages that need stories, checks its idea isn’t a near-copy, then writes every field. submit_story checks the rules (length, title, tags) and sends problems back for it to fix. Once a story is published, a copy is emailed to you and the story goes to the Social agent.'
+      'Looks at the catalog to find categories and ages that need stories, checks its idea isn’t a near-copy, then writes every field. submit_story checks the rules (length, title, tags) and sends problems back for it to fix. Once a story is published, a copy is emailed to you and the story goes to the Social agent. Stories published from the Studio are also uploaded to YouTube as a short video.'
   },
   {
     id: 'social',
@@ -101,8 +101,9 @@ const triggers: Node[] = [
 const outputs: (Node & { color: string })[] = [
   { x: 840, y: 153, w: 150, title: 'Facebook', sub: 'Page post', color: '#E36656' },
   { x: 840, y: 218, w: 150, title: 'Instagram', sub: '@kidstory64', color: '#E36656' },
-  { x: 840, y: 333, w: 150, title: 'Book Picks', sub: '/books', color: '#D9A441' },
-  { x: 840, y: 443, w: 150, title: 'Website', sub: 'story pages', color: '#3E9B76' },
+  // Book Picks is a section of the website, so the digest lands there too.
+  { x: 840, y: 333, w: 150, title: 'Website', sub: 'stories · Book Picks', color: '#3E9B76' },
+  { x: 840, y: 420, w: 150, title: 'YouTube', sub: 'Studio publishes', color: '#C4302B' },
   { x: 840, y: 563, w: 150, title: 'Your inbox', sub: 'stories · hand-offs', color: '#5BA3C9' }
 ]
 
@@ -127,8 +128,10 @@ const wires: Wire[] = [
   { id: 'support-catalog', d: 'M500,505 C540,505 540,500 580,500', color: '#5BA3C9', agents: ['support'], dashed: true, dur: 1.8 },
   { id: 'social-fb', d: 'M780,190 C810,190 810,175 840,175', color: '#E36656', agents: ['social'], dur: 1.6 },
   { id: 'social-ig', d: 'M780,235 C810,235 810,240 840,240', color: '#E36656', agents: ['social'], dur: 1.6 },
-  { id: 'books-picks', d: 'M500,355 L840,355', color: '#D9A441', agents: ['books'], dur: 3.4 },
-  { id: 'catalog-site', d: 'M780,470 C810,470 810,465 840,465', color: '#3E9B76', agents: ['story'], dur: 1.6 },
+  { id: 'books-site', d: 'M500,350 L840,350', color: '#D9A441', agents: ['books'], dur: 3.4 },
+  // A Studio publish also renders a short cover video and uploads it (the daily cron doesn't).
+  { id: 'catalog-youtube', d: 'M780,472 C810,472 810,442 840,442', color: '#3E9B76', agents: ['story'], dur: 1.8 },
+  { id: 'catalog-site', d: 'M780,450 C812,450 812,365 840,365', color: '#3E9B76', agents: ['story'], dur: 1.6 },
   { id: 'catalog-inbox', d: 'M780,505 C812,505 812,574 840,574', color: '#3E9B76', agents: ['story'], dur: 1.8 },
   { id: 'support-inbox', d: 'M500,585 C670,585 670,585 840,585', color: '#5BA3C9', agents: ['support'], dur: 3 }
 ]
@@ -139,7 +142,7 @@ const pinned = ref<AgentId | null>(null)
 const labels: { text: string; x: number; y: number; ink: string; agents: AgentId[] }[] = [
   { text: 'new story', x: 512, y: 70, ink: '#2F6F58', agents: ['story', 'social'] },
   { text: 'new digest', x: 506, y: 287, ink: '#8A5F0E', agents: ['books', 'social'] },
-  { text: 'digest', x: 640, y: 359, ink: '#8A5F0E', agents: ['books'] },
+  { text: 'digest', x: 640, y: 354, ink: '#8A5F0E', agents: ['books'] },
   { text: 'reads', x: 520, y: 530, ink: '#2B6F96', agents: ['support'] },
   { text: 'email', x: 792, y: 546, ink: '#2F6F58', agents: ['story'] },
   { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] }
