@@ -37,7 +37,7 @@ const agents: Agent[] = [
     w: 250,
     tools: ['catalog_overview · search_catalog', 'submit_story · decline_request'],
     about:
-      'Looks at the catalog to find categories and ages that need stories, checks its idea isn’t a near-copy, then writes every field. submit_story checks the rules (length, title, tags) and sends problems back for it to fix. Once a story is published, a copy is emailed to you and the story goes to the Social agent. Stories published from the Studio are also uploaded to YouTube as a short video.'
+      'Looks at the stories in the database to find categories and ages that need stories, checks its idea isn’t a near-copy, then writes every field. submit_story checks the rules (length, title, tags) and sends problems back for it to fix. Once a story is published, a copy is emailed to you and the story goes to the Social agent. Stories published from the Studio are also uploaded to YouTube as a short video.'
   },
   {
     id: 'social',
@@ -63,7 +63,7 @@ const agents: Agent[] = [
     w: 250,
     tools: ['web_search · recent_digests', 'publish_digest'],
     about:
-      'Every evening it searches the web for children’s bestseller lists, picks an angle the last digests didn’t take, and writes the Book Picks digest. It can only cite pages its own searches found. Then it hands the digest to the Social agent.'
+      'Every evening it searches the web for children’s bestseller lists, picks an angle the last digests didn’t take, and writes the Book Picks digest. It can only cite pages its own searches found. The digest is saved to the database, where the website’s Book Picks section reads it, and handed to the Social agent.'
   },
   {
     id: 'support',
@@ -124,14 +124,14 @@ const wires: Wire[] = [
   { id: 't-readers', d: 'M180,540 L250,540', color: '#5BA3C9', agents: ['support'], dur: 2 },
   { id: 'story-social', d: 'M500,85 C540,85 540,190 580,190', color: '#3E9B76', agents: ['story', 'social'], dur: 2.4 },
   { id: 'books-social', d: 'M500,300 C540,300 540,240 580,240', color: '#D9A441', agents: ['books', 'social'], dur: 2.4 },
-  { id: 'story-catalog', d: 'M500,150 C548,150 548,465 580,465', color: '#3E9B76', agents: ['story'], dur: 3.2 },
+  { id: 'story-catalog', d: 'M500,150 C548,150 548,452 580,452', color: '#3E9B76', agents: ['story'], dur: 3.2 },
   { id: 'support-catalog', d: 'M500,505 C540,505 540,500 580,500', color: '#5BA3C9', agents: ['support'], dashed: true, dur: 1.8 },
   { id: 'social-fb', d: 'M780,190 C810,190 810,175 840,175', color: '#E36656', agents: ['social'], dur: 1.6 },
   { id: 'social-ig', d: 'M780,235 C810,235 810,240 840,240', color: '#E36656', agents: ['social'], dur: 1.6 },
-  { id: 'books-site', d: 'M500,350 L840,350', color: '#D9A441', agents: ['books'], dur: 3.4 },
+  { id: 'books-catalog', d: 'M500,345 C538,345 538,474 580,474', color: '#D9A441', agents: ['books'], dur: 2.6 },
   // A Studio publish also renders a short cover video and uploads it (the daily cron doesn't).
   { id: 'catalog-youtube', d: 'M780,472 C810,472 810,442 840,442', color: '#3E9B76', agents: ['story'], dur: 1.8 },
-  { id: 'catalog-site', d: 'M780,450 C812,450 812,365 840,365', color: '#3E9B76', agents: ['story'], dur: 1.6 },
+  { id: 'catalog-site', d: 'M780,450 C812,450 812,365 840,365', color: '#1B3B5F', agents: ['story', 'books'], dur: 1.6 },
   { id: 'catalog-inbox', d: 'M780,505 C812,505 812,574 840,574', color: '#3E9B76', agents: ['story'], dur: 1.8 },
   { id: 'support-inbox', d: 'M500,585 C670,585 670,585 840,585', color: '#5BA3C9', agents: ['support'], dur: 3 }
 ]
@@ -142,7 +142,6 @@ const pinned = ref<AgentId | null>(null)
 const labels: { text: string; x: number; y: number; ink: string; agents: AgentId[] }[] = [
   { text: 'new story', x: 512, y: 70, ink: '#2F6F58', agents: ['story', 'social'] },
   { text: 'new digest', x: 506, y: 287, ink: '#8A5F0E', agents: ['books', 'social'] },
-  { text: 'digest', x: 640, y: 354, ink: '#8A5F0E', agents: ['books'] },
   { text: 'reads', x: 520, y: 530, ink: '#2B6F96', agents: ['support'] },
   { text: 'email', x: 792, y: 546, ink: '#2F6F58', agents: ['story'] },
   { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] }
@@ -254,17 +253,17 @@ const statLine = (id: AgentId) => {
           <text :x="t.x + 12" :y="t.y + 31" font-size="10" fill="#5B5347">{{ t.sub }}</text>
         </g>
 
-        <!-- Story catalog (the shared database) -->
-        <g :opacity="!active || active === 'story' || active === 'support' ? 1 : 0.45" class="transition-opacity duration-300">
+        <!-- The shared database: stories and Book Picks digests -->
+        <g :opacity="!active || active === 'story' || active === 'books' || active === 'support' ? 1 : 0.45" class="transition-opacity duration-300">
           <rect x="580" y="430" width="200" height="90" rx="16" fill="#FFFFFF" filter="url(#am-shadow)" />
           <g transform="translate(606 458)" fill="none" stroke="#2F6F58" stroke-width="1.8">
             <ellipse cx="0" cy="0" rx="12" ry="4.5" />
             <path d="M-12,0 V18 A12,4.5 0 0 0 12,18 V0" />
             <path d="M-12,9 A12,4.5 0 0 0 12,9" />
           </g>
-          <text x="628" y="459" font-size="13.5" font-weight="700" fill="#1B3B5F">Story catalog</text>
-          <text x="628" y="476" font-size="10.5" fill="#5B5347">{{ storyCount }} stories · Supabase</text>
-          <text x="628" y="505" font-size="10" fill="#5B5347" opacity="0.7">via kidstory-api</text>
+          <text x="628" y="459" font-size="13.5" font-weight="700" fill="#1B3B5F">Database</text>
+          <text x="628" y="476" font-size="10.5" fill="#5B5347">{{ storyCount }} stories · {{ digestCount }} digests</text>
+          <text x="628" y="505" font-size="10" fill="#5B5347" opacity="0.7">Supabase via kidstory-api</text>
         </g>
 
         <!-- Agents -->
@@ -347,7 +346,7 @@ const statLine = (id: AgentId) => {
         <template v-if="selected">{{ selected.about }}</template>
         <template v-else>
           Triggers on the left start an agent. The Story and Books agents hand finished work to the Social agent, which shares it.
-          Every new story lands in the catalog, which the Support agent reads from, and a copy goes to your inbox. Pick an agent to see what it does.
+          Stories and Book Picks digests are saved to the database, which the website and the Support agent read from. Every new story is also emailed to you. Pick an agent to see what it does.
         </template>
       </p>
     </div>
