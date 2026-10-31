@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ZapOff } from '@lucide/vue'
 import type { AgentRun, StorySummary, BookDigestList, VisitorStats } from '../../../shared/utils/kidstory-api'
 
 definePageMeta({ layout: 'admin' })
@@ -78,9 +79,18 @@ onBeforeUnmount(() => {
 <template>
   <div class="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-10">
     <p v-if="error" class="mb-4 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-semibold text-coral">{{ error }}</p>
-    <p v-if="activityError" class="mb-4 rounded-2xl bg-tan/60 px-4 py-3 text-sm font-semibold text-navy">
-      Live activity is off: {{ activityError }}
-    </p>
+    <!-- Pinned top right (below the mobile top bar) so it never pushes the machine down. -->
+    <div
+      v-if="activityError"
+      role="status"
+      class="fixed right-4 top-28 z-40 flex max-w-xs gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-navy shadow-warm lg:top-6"
+    >
+      <ZapOff class="mt-0.5 h-4 w-4 shrink-0 text-coral" />
+      <div>
+        <p class="font-bold">Live activity is off</p>
+        <p class="mt-0.5 text-ink-muted">{{ activityError }}</p>
+      </div>
+    </div>
     <AgentMachine
       :story-count="stories.length"
       :digest-count="digests?.total ?? 0"
