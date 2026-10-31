@@ -167,7 +167,8 @@ const wires: Wire[] = [
   // A Studio publish also renders a short cover video and uploads it (the daily cron doesn't).
   { id: 'catalog-site', d: 'M780,450 C812,450 812,365 840,365', color: '#1B3B5F', agents: ['story', 'books'], halo: true, dur: 1.6 },
   { id: 'support-inbox', d: 'M500,585 C670,585 670,585 840,585', color: '#5BA3C9', agents: ['support'], dur: 3 },
-  { id: 't-tracker', d: 'M180,670 C215,670 215,682 250,682', color: '#8B6CC1', agents: ['visitors'], dur: 2 },
+  // The tracker only saves visits, so its wire runs through the gap above the Visitors agent into the database.
+  { id: 't-tracker', d: 'M180,670 C215,670 215,622 250,622 L520,622 C610,622 640,590 640,520', color: '#8B6CC1', agents: ['visitors'], halo: true, dur: 3 },
   { id: 't-owner', d: 'M180,740 C215,740 215,728 250,728', color: '#8B6CC1', agents: ['visitors'], dur: 2.2 },
   { id: 'visitors-catalog', d: 'M500,680 C700,680 740,600 740,520', color: '#8B6CC1', agents: ['visitors'], dashed: true, halo: true, dur: 2.2 },
   { id: 'visitors-page', d: 'M500,730 C670,730 670,710 840,710', color: '#8B6CC1', agents: ['visitors'], dur: 2.6 }
