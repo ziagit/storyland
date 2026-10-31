@@ -100,12 +100,14 @@ Modeled closely on the reference layout:
 - Optional: social links, simple FAQ.
 
 ### 3.6 Account (`/account`)
-- `/account`: public, nav-linked page (icon in header, next to Search) for reader sign-in.
-- Passwordless sign-in: enter an email, receive a Supabase Auth magic link, click it to return signed in — no password to set or manage.
+- `/account`: public page for reader sign-in (no longer linked from the header since 2026-10-31).
+- Magic-link sign-in: enter an email, receive a Supabase Auth magic link, click it to return signed in.
+- Once signed in, a "Set Password" form sets the password used on `/login` (§3.7). A "Forgot password?" email from `/login` also lands here.
 - Once signed in: shows the reader's email, a note that every story is free, and a sign-out button. (`/checkout` was removed with the paywall on 2026-10-31.)
 
 ### 3.7 Studio (`/studio`) — internal authoring tool
-- Unlisted page (not linked from nav/footer, no auth) for the site owner to draft new stories with an AI model and publish them.
+- Owner-only page for drafting new stories with an AI model and publishing them. The footer's "Studio →" button links to it.
+- **Sign-in required:** `/studio` (rendered client-side only) sends anyone without a session to `/login`, an email + password form (Supabase Auth `signInWithPassword`) with a "Forgot password?" reset email. Only emails on the `STUDIO_EMAILS` allowlist (server env, comma-separated) get in; an empty list locks the studio for everyone. The server enforces the same check (`requireStudioUser`, `Authorization: Bearer <Supabase access token>`) on `/api/studio/*` and `/api/admin/*`, so the routes can't be called directly either. No sign-up form: the owner's account is the existing Supabase user, with a password set from `/account`.
 - Chat-style flow: enter a topic (+ optional category/age hint) → the story agent (§3.13) drafts a story → owner can ask for changes in follow-up messages, which the agent applies to the current draft → "Publish" sends the finished story to `kidstory-api` (`POST /stories`), which derives the slug and stores it. The agent's one-line note (why it wrote this story, or what it changed) is its chat reply.
 - Server-side only: the `kidstory-api` key lives in `runtimeConfig` (never sent to the client); one Nitro server route asks the API's story agent to write or revise the story (`POST /agents/story`, with the current draft and chat history on follow-ups) and another asks it to store the accepted draft (`POST /stories`).
 - Works on read-only/serverless production hosts, since publishing is a database write rather than a filesystem write.

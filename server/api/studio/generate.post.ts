@@ -12,6 +12,7 @@ interface GenerateBody {
 }
 
 export default defineEventHandler(async (event) => {
+  await requireStudioUser(event)
   const body = await readBody<GenerateBody>(event)
   const topic = body?.topic?.trim() ?? ''
   if (!topic) {

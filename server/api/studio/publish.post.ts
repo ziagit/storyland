@@ -15,6 +15,7 @@ interface PublishBody {
 }
 
 export default defineEventHandler(async (event) => {
+  await requireStudioUser(event)
   const body = await readBody<PublishBody>(event)
 
   const title = String(body?.title ?? '').trim()

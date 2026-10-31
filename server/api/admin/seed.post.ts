@@ -1,7 +1,8 @@
 import { createStory, updateStory, KidstoryApiError } from '../../../shared/utils/kidstory-api'
 import type { StoryDraft } from '../../../shared/utils/story-authoring'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  await requireStudioUser(event)
   const api = useKidstoryApi()
 
   // The API has no upsert, so each seed story is created with its fixed slug and,

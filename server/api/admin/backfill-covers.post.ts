@@ -1,6 +1,7 @@
 import { listAllStories, updateStory, KidstoryApiError } from '../../../shared/utils/kidstory-api'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  await requireStudioUser(event)
   const api = useKidstoryApi()
 
   try {

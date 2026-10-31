@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Mail, BookOpen } from '@lucide/vue'
+import { Mail, BookOpen, KeyRound } from '@lucide/vue'
 
 useSeoMeta({
   title: 'Account',
@@ -7,7 +7,7 @@ useSeoMeta({
 })
 
 const route = useRoute()
-const { user, ready, signInWithOtp, signOut } = useAuth()
+const { user, ready, signInWithOtp, updatePassword, signOut } = useAuth()
 
 const email = ref('')
 const sendState = ref<'idle' | 'sending' | 'sent' | 'error'>('idle')
@@ -24,6 +24,28 @@ async function sendLink() {
     sendError.value = error
   } else {
     sendState.value = 'sent'
+  }
+}
+
+// Set or change the password used on /login (also where a "Forgot password?" link lands).
+const newPassword = ref('')
+const passwordState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+const passwordError = ref('')
+
+async function savePassword() {
+  if (newPassword.value.length < 8) {
+    passwordState.value = 'error'
+    passwordError.value = 'Use at least 8 characters.'
+    return
+  }
+  passwordState.value = 'saving'
+  const { error } = await updatePassword(newPassword.value)
+  if (error) {
+    passwordState.value = 'error'
+    passwordError.value = error
+  } else {
+    passwordState.value = 'saved'
+    newPassword.value = ''
   }
 }
 
@@ -75,6 +97,22 @@ watch(user, (u) => {
               Browse Stories
             </UiButton>
           </div>
+
+          <form class="mt-6 flex flex-col gap-3 rounded-2xl bg-tan/40 p-5" @submit.prevent="savePassword">
+            <p class="flex items-center justify-center gap-2 font-bold text-navy"><KeyRound class="h-4 w-4" /> Password</p>
+            <input
+              v-model="newPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="New password"
+              class="rounded-full border-2 border-navy/15 bg-white px-5 py-3 text-navy outline-none focus:border-green"
+            />
+            <UiButton type="submit" variant="primary" class="justify-center" :class="{ 'pointer-events-none opacity-60': passwordState === 'saving' }">
+              {{ passwordState === 'saving' ? 'Saving…' : 'Set Password' }}
+            </UiButton>
+            <p v-if="passwordState === 'saved'" class="text-sm font-bold text-green">Password saved — you can sign in with it now.</p>
+            <p v-if="passwordState === 'error'" class="text-sm font-bold text-coral">{{ passwordError }}</p>
+          </form>
 
           <button type="button" class="mt-6 font-bold text-ink-muted hover:text-coral" @click="signOut">Sign out</button>
         </template>

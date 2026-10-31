@@ -2,6 +2,11 @@
 import { Sparkles, Send, Loader2, Wand2, CircleCheck, CircleAlert, MessageCircle } from '@lucide/vue'
 import { categories } from '~/data/categories'
 
+definePageMeta({ middleware: 'studio' })
+
+const { accessToken } = useAuth()
+const authHeaders = () => ({ Authorization: `Bearer ${accessToken.value}` })
+
 useSeoMeta({
   title: 'Studio',
   robots: 'noindex, nofollow'
@@ -76,6 +81,7 @@ async function generate(promptText: string) {
     const revising = currentDraft.value !== null
     const res = await $fetch<{ draft: StoryDraft; notes: string; history: ChatMessage[] }>('/api/studio/generate', {
       method: 'POST',
+      headers: authHeaders(),
       body: {
         topic: promptText,
         category: (!revising && category.value) || undefined,
@@ -109,6 +115,7 @@ async function publish() {
   try {
     const res = await $fetch<{ slug: string }>('/api/studio/publish', {
       method: 'POST',
+      headers: authHeaders(),
       body: currentDraft.value
     })
     publishedSlug.value = res.slug
