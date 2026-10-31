@@ -7,16 +7,14 @@
 // client instead of reusing server/utils/supabase.ts (Supabase is only needed
 // for `used_topics`; the story itself is written by the story agent and published
 // via kidstory-api). Reuses the same agent/publish/topic logic as the cron route so
-// both paths stay in sync. Unlike the Vercel route it also posts to YouTube (ffmpeg
-// renders fine here; on Vercel it can exceed the serverless bundle/time limits).
+// both paths stay in sync. The social agent on kidstory-api does all the sharing,
+// email and YouTube included (YouTube only where the API has ffmpeg).
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { createStoryWithAgent, publishStoryDraft, StoryAuthoringError } from '../shared/utils/story-authoring'
-import { sendNewStoryEmail, parseRecipients } from '../shared/utils/notify'
 import { shareStoryOnSocial } from '../shared/utils/social-sharing'
-import { postStoryToYouTube } from '../shared/utils/youtube'
 import { pickAutoPostTopic, recordUsedTopic } from '../shared/utils/auto-post'
 
 const envPath = fileURLToPath(new URL('../.env', import.meta.url))
@@ -29,13 +27,7 @@ const {
   KIDSTORY_API_KEY,
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
-  GMAIL_USER,
-  GMAIL_APP_PASSWORD,
-  SITE_URL,
-  NOTIFY_EMAILS,
-  YOUTUBE_CLIENT_ID,
-  YOUTUBE_CLIENT_SECRET,
-  YOUTUBE_REFRESH_TOKEN
+  SITE_URL
 } = process.env
 
 if (!KIDSTORY_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -69,14 +61,7 @@ async function main() {
   // social posts, so an interrupted run can't cause a duplicate topic next time.
   await recordUsedTopic(supabase, picked.recordAs ?? draft.title)
 
-  await sendNewStoryEmail({ user: GMAIL_USER, appPassword: GMAIL_APP_PASSWORD }, draft, slug, SITE_URL, parseRecipients(NOTIFY_EMAILS))
   await shareStoryOnSocial(api, slug, SITE_URL)
-  await postStoryToYouTube(
-    { clientId: YOUTUBE_CLIENT_ID, clientSecret: YOUTUBE_CLIENT_SECRET, refreshToken: YOUTUBE_REFRESH_TOKEN },
-    draft,
-    slug,
-    SITE_URL
-  )
 }
 
 main().catch((err) => {

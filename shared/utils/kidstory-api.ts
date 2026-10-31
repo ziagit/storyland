@@ -87,7 +87,7 @@ export interface SocialAgentInput {
 }
 
 export interface SocialPostResult {
-  platform: 'facebook' | 'instagram'
+  platform: 'facebook' | 'instagram' | 'email' | 'youtube'
   status: 'posted' | 'dry_run' | 'skipped' | 'failed'
   text: string | null
   postId: string | null

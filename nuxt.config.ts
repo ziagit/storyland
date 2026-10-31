@@ -10,9 +10,6 @@ export default defineNuxtConfig({
     gmailAppPassword: process.env.GMAIL_APP_PASSWORD,
     notifyEmails: process.env.NOTIFY_EMAILS,
     siteUrl: process.env.SITE_URL,
-    youtubeClientId: process.env.YOUTUBE_CLIENT_ID,
-    youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET,
-    youtubeRefreshToken: process.env.YOUTUBE_REFRESH_TOKEN,
     // Shared secret between Vercel Cron and /api/cron/daily-post — Vercel sends it
     // as `Authorization: Bearer ${CRON_SECRET}`; the route rejects anything else.
     cronSecret: process.env.CRON_SECRET,

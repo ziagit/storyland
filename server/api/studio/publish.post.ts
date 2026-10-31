@@ -1,7 +1,5 @@
 import { CATEGORY_SLUGS, AGE_RANGES, publishStoryDraft, StoryAuthoringError, type StoryDraft } from '../../../shared/utils/story-authoring'
-import { sendNewStoryEmail, parseRecipients } from '../../../shared/utils/notify'
 import { shareStoryOnSocial } from '../../../shared/utils/social-sharing'
-import { postStoryToYouTube } from '../../../shared/utils/youtube'
 
 interface PublishBody {
   title?: string
@@ -49,36 +47,13 @@ export default defineEventHandler(async (event) => {
   const api = useKidstoryApi()
   try {
     const result = await publishStoryDraft(api, draft)
-    // Never lets a notification failure fail the publish itself — sendNewStoryEmail
-    // swallows its own errors (logged, not thrown).
     const config = useRuntimeConfig()
-    // Prefer an explicit SITE_URL (the deployed, publicly-reachable origin) over the
-    // request origin: when /studio runs on localhost, getRequestURL() yields
-    // http://localhost:3000, which Facebook can't fetch to build a link preview
-    // ("The url you supplied is invalid") and which makes for useless email links too.
-    // Stories live in the shared database behind kidstory-api, so the deployed URL resolves either way.
-    const siteUrl = config.siteUrl || getRequestURL(event).origin
-    await sendNewStoryEmail(
-      { user: config.gmailUser, appPassword: config.gmailAppPassword },
-      draft,
-      result.slug,
-      siteUrl,
-      parseRecipients(config.notifyEmails)
-    )
-    // The social agent writes and publishes the Facebook + Instagram posts. Pass
-    // only an explicit SITE_URL: a localhost origin is no use in a post, and the
-    // API falls back to its own SITE_URL.
+    // The social agent shares the story everywhere: Facebook, Instagram, the
+    // owner's email and YouTube (where the API has ffmpeg). Pass only an explicit
+    // SITE_URL: a localhost origin is no use in a post or an email link, and the
+    // API falls back to its own SITE_URL. Never throws, so a sharing failure
+    // can't fail the publish.
     await shareStoryOnSocial(api, result.slug, config.siteUrl || undefined)
-    await postStoryToYouTube(
-      {
-        clientId: config.youtubeClientId,
-        clientSecret: config.youtubeClientSecret,
-        refreshToken: config.youtubeRefreshToken
-      },
-      draft,
-      result.slug,
-      siteUrl
-    )
     return result
   } catch (err) {
     if (err instanceof StoryAuthoringError) {

@@ -21,6 +21,8 @@ interface Agent {
   x: number
   y: number
   w: number
+  // Card height, when it needs more room than CARD_H for its tools.
+  h?: number
   tools: string[]
   about: string
 }
@@ -37,7 +39,7 @@ const agents: Agent[] = [
     w: 250,
     tools: ['catalog_overview · search_catalog', 'submit_story · decline_request'],
     about:
-      'Looks at the stories in the database to find categories and ages that need stories, checks its idea isn’t a near-copy, then writes every field. submit_story checks the rules (length, title, tags) and sends problems back for it to fix. Once a story is published, a copy is emailed to you and the story goes to the Social agent. Stories published from the Studio are also uploaded to YouTube as a short video.'
+      'Looks at the stories in the database to find categories and ages that need stories, checks its idea isn’t a near-copy, then writes every field. submit_story checks the rules (length, title, tags) and sends problems back for it to fix. Once a story is published, it goes to the Social agent, which shares it and emails you a copy.'
   },
   {
     id: 'social',
@@ -47,10 +49,11 @@ const agents: Agent[] = [
     ink: '#C2493A',
     x: 580,
     y: 140,
-    w: 200,
-    tools: ['recent_posts', 'post_to_facebook / instagram'],
+    w: 210,
+    h: 154,
+    tools: ['recent_posts · email_owner', 'post_to_facebook / instagram', 'post_to_youtube'],
     about:
-      'Never starts on its own: the Story and Books agents hand it each new story or digest. It reads the last few posts so it doesn’t repeat itself, then writes a post for Facebook and a caption for Instagram.'
+      'Never starts on its own: the Story and Books agents hand it each new story or digest. It reads the last few posts so it doesn’t repeat itself, then writes a Facebook post and an Instagram caption. For a new story it also emails you a copy and uploads a short cover video to YouTube. The video needs ffmpeg, so YouTube only happens when the API runs on your machine, not on Vercel.'
   },
   {
     id: 'books',
@@ -99,11 +102,11 @@ const triggers: Node[] = [
 ]
 
 const outputs: (Node & { color: string })[] = [
-  { x: 840, y: 153, w: 150, title: 'Facebook', sub: 'Page post', color: '#E36656' },
-  { x: 840, y: 218, w: 150, title: 'Instagram', sub: '@kidstory64', color: '#E36656' },
+  { x: 840, y: 130, w: 150, title: 'Facebook', sub: 'Page post', color: '#E36656' },
+  { x: 840, y: 185, w: 150, title: 'Instagram', sub: '@kidstory64', color: '#E36656' },
+  { x: 840, y: 240, w: 150, title: 'YouTube', sub: 'when run locally', color: '#C4302B' },
   // Book Picks is a section of the website, so the digest lands there too.
   { x: 840, y: 333, w: 150, title: 'Website', sub: 'stories · Book Picks', color: '#3E9B76' },
-  { x: 840, y: 420, w: 150, title: 'YouTube', sub: 'Studio publishes', color: '#C4302B' },
   { x: 840, y: 563, w: 150, title: 'Your inbox', sub: 'stories · hand-offs', color: '#5BA3C9' }
 ]
 
@@ -113,6 +116,8 @@ interface Wire {
   color: string
   agents: AgentId[]
   dashed?: boolean
+  // Drawn over a white outline, so it reads as passing over a wire it crosses.
+  halo?: boolean
   dur: number
 }
 
@@ -126,13 +131,13 @@ const wires: Wire[] = [
   { id: 'books-social', d: 'M500,300 C540,300 540,240 580,240', color: '#D9A441', agents: ['books', 'social'], dur: 2.4 },
   { id: 'story-catalog', d: 'M500,150 C548,150 548,452 580,452', color: '#3E9B76', agents: ['story'], dur: 3.2 },
   { id: 'support-catalog', d: 'M500,505 C540,505 540,500 580,500', color: '#5BA3C9', agents: ['support'], dashed: true, dur: 1.8 },
-  { id: 'social-fb', d: 'M780,190 C810,190 810,175 840,175', color: '#E36656', agents: ['social'], dur: 1.6 },
-  { id: 'social-ig', d: 'M780,235 C810,235 810,240 840,240', color: '#E36656', agents: ['social'], dur: 1.6 },
+  { id: 'social-fb', d: 'M790,180 C815,180 815,152 840,152', color: '#E36656', agents: ['social'], dur: 1.6 },
+  { id: 'social-ig', d: 'M790,210 C815,210 815,207 840,207', color: '#E36656', agents: ['social'], dur: 1.6 },
+  { id: 'social-youtube', d: 'M790,240 C815,240 815,262 840,262', color: '#E36656', agents: ['social'], dur: 1.6 },
+  { id: 'social-inbox', d: 'M790,276 C830,276 814,575 840,575', color: '#E36656', agents: ['social'], dur: 2.8 },
   { id: 'books-catalog', d: 'M500,345 C538,345 538,474 580,474', color: '#D9A441', agents: ['books'], dur: 2.6 },
   // A Studio publish also renders a short cover video and uploads it (the daily cron doesn't).
-  { id: 'catalog-youtube', d: 'M780,472 C810,472 810,442 840,442', color: '#3E9B76', agents: ['story'], dur: 1.8 },
-  { id: 'catalog-site', d: 'M780,450 C812,450 812,365 840,365', color: '#1B3B5F', agents: ['story', 'books'], dur: 1.6 },
-  { id: 'catalog-inbox', d: 'M780,505 C812,505 812,574 840,574', color: '#3E9B76', agents: ['story'], dur: 1.8 },
+  { id: 'catalog-site', d: 'M780,450 C812,450 812,365 840,365', color: '#1B3B5F', agents: ['story', 'books'], halo: true, dur: 1.6 },
   { id: 'support-inbox', d: 'M500,585 C670,585 670,585 840,585', color: '#5BA3C9', agents: ['support'], dur: 3 }
 ]
 
@@ -143,7 +148,7 @@ const labels: { text: string; x: number; y: number; ink: string; agents: AgentId
   { text: 'new story', x: 512, y: 70, ink: '#2F6F58', agents: ['story', 'social'] },
   { text: 'new digest', x: 506, y: 287, ink: '#8A5F0E', agents: ['books', 'social'] },
   { text: 'reads', x: 520, y: 530, ink: '#2B6F96', agents: ['support'] },
-  { text: 'email', x: 792, y: 546, ink: '#2F6F58', agents: ['story'] },
+  { text: 'email', x: 800, y: 498, ink: '#C2493A', agents: ['social'] },
   { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] }
 ]
 
@@ -215,16 +220,17 @@ const statLine = (id: AgentId) => {
 
         <!-- Wires -->
         <g fill="none" stroke-linecap="round">
-          <path
-            v-for="w in wires"
-            :key="w.id"
-            :d="w.d"
-            :stroke="w.color"
-            stroke-width="2.5"
-            :stroke-dasharray="w.dashed ? '5 6' : undefined"
-            :opacity="wireOpacity(w)"
-            class="transition-opacity duration-300"
-          />
+          <template v-for="w in wires" :key="w.id">
+            <path v-if="w.halo" :d="w.d" stroke="#FBF3E3" stroke-width="9" />
+            <path
+              :d="w.d"
+              :stroke="w.color"
+              stroke-width="2.5"
+              :stroke-dasharray="w.dashed ? '5 6' : undefined"
+              :opacity="wireOpacity(w)"
+              class="transition-opacity duration-300"
+            />
+          </template>
         </g>
 
         <!-- Data flowing along the wires -->
@@ -282,7 +288,7 @@ const statLine = (id: AgentId) => {
           @click="togglePin(a.id)"
           @keydown.enter="togglePin(a.id)"
         >
-          <rect :x="a.x" :y="a.y" :width="a.w" :height="CARD_H" rx="18" fill="#FFFFFF" :filter="active === a.id ? 'url(#am-shadow-lift)' : 'url(#am-shadow)'" />
+          <rect :x="a.x" :y="a.y" :width="a.w" :height="a.h ?? CARD_H" rx="18" fill="#FFFFFF" :filter="active === a.id ? 'url(#am-shadow-lift)' : 'url(#am-shadow)'" />
           <rect :x="a.x" :y="a.y + 18" width="4" height="36" rx="2" :fill="a.color" />
 
           <!-- Gear -->
@@ -314,7 +320,7 @@ const statLine = (id: AgentId) => {
             font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
             fill="#1B3B5F"
           >{{ line }}</text>
-          <text :x="a.x + 16" :y="a.y + CARD_H - 10" font-size="10.5" font-weight="700" :fill="a.ink">{{ statLine(a.id) }}</text>
+          <text :x="a.x + 16" :y="a.y + (a.h ?? CARD_H) - 10" font-size="10.5" font-weight="700" :fill="a.ink">{{ statLine(a.id) }}</text>
         </g>
 
         <!-- Outputs -->
@@ -346,7 +352,7 @@ const statLine = (id: AgentId) => {
         <template v-if="selected">{{ selected.about }}</template>
         <template v-else>
           Triggers on the left start an agent. The Story and Books agents hand finished work to the Social agent, which shares it.
-          Stories and Book Picks digests are saved to the database, which the website and the Support agent read from. Every new story is also emailed to you. Pick an agent to see what it does.
+          Stories and Book Picks digests are saved to the database, which the website and the Support agent read from. The Social agent shares each one, and emails you every new story. Pick an agent to see what it does.
         </template>
       </p>
     </div>

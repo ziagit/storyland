@@ -1,11 +1,11 @@
 // Framework-agnostic like story-authoring.ts and notify.ts — called from the Nitro
 // /studio publish route, the Vercel Cron route and the standalone scripts/daily-post.ts.
 //
-// Facebook and Instagram posting is done by the social agent on kidstory-api
-// (`POST /agents/social`, app/agents/social_agent.py): it reads the story, checks
-// the accounts' recent posts, writes a post for each platform and publishes it. The
-// platform tokens live on the API now. YouTube isn't part of the agent (its upload
-// renders a video with ffmpeg) and is still posted from here — see youtube.ts.
+// All sharing is done by the social agent on kidstory-api (`POST /agents/social`,
+// app/agents/social_agent.py): it reads the story, checks the accounts' recent
+// posts, and writes and publishes a Facebook post and an Instagram caption. For a
+// new story it also emails the owner a copy and uploads a cover video to YouTube
+// (only where the API has ffmpeg). The tokens and Gmail password live on the API.
 import { runSocialAgent, type KidstoryApiConfig } from './kidstory-api'
 
 /**

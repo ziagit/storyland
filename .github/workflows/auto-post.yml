@@ -1,10 +1,10 @@
 name: Auto-publish story (manual fallback)
 
 # Primary scheduling is Vercel Cron (vercel.json → /api/cron/daily-post), which
-# runs on the deployment itself and covers email + Facebook + Instagram. This
-# workflow is a manual fallback: trigger it from the Actions tab ("Run workflow")
-# if a Vercel run is missed, or to publish a story that also gets a YouTube video
-# (which the Vercel route skips — ffmpeg exceeds the serverless limits).
+# runs on the deployment itself. This workflow is a manual fallback: trigger it
+# from the Actions tab ("Run workflow") if a Vercel run is missed. Sharing (social
+# posts, the owner's email, YouTube) is done by kidstory-api's social agent, so
+# only the API and Supabase secrets are needed here.
 on:
   workflow_dispatch: {}
 
@@ -26,9 +26,3 @@ jobs:
           KIDSTORY_API_KEY: ${{ secrets.KIDSTORY_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          NOTIFY_EMAILS: ${{ secrets.NOTIFY_EMAILS }}
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}

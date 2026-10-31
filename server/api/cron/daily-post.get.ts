@@ -1,15 +1,9 @@
 // Unattended daily story publish, triggered by Vercel Cron (see vercel.json).
 // Does what scripts/daily-post.ts does — the story agent writes a story, it's
-// published, the owner is emailed, and the social agent shares it on Facebook +
-// Instagram — but as a Nitro route so it runs on the deployment itself instead
-// of GitHub Actions. Both agents run on kidstory-api.
-//
-// YouTube is deliberately NOT wired here: rendering a video needs ffmpeg-static
-// (~80 MB, can blow Vercel's serverless bundle limit) and the render + upload is
-// slow enough to risk the function time limit. YouTube auto-post stays
-// available from /studio publish and the manual GitHub Actions fallback.
+// published, and the social agent shares it (Facebook, Instagram, the owner's
+// email, and YouTube where the API has ffmpeg) — but as a Nitro route so it runs
+// on the deployment itself instead of GitHub Actions. Both agents run on kidstory-api.
 import { createStoryWithAgent, publishStoryDraft, StoryAuthoringError } from '../../../shared/utils/story-authoring'
-import { sendNewStoryEmail, parseRecipients } from '../../../shared/utils/notify'
 import { shareStoryOnSocial } from '../../../shared/utils/social-sharing'
 import { pickAutoPostTopic, recordUsedTopic } from '../../../shared/utils/auto-post'
 
@@ -50,15 +44,7 @@ export default defineEventHandler(async (event) => {
     // the link to build a preview card and rejects anything it can't reach.
     const siteUrl = config.siteUrl || getRequestURL(event).origin
 
-    // None of these throw — each logs and returns on failure — so one failing
-    // channel never blocks the others or the 200 response.
-    await sendNewStoryEmail(
-      { user: config.gmailUser, appPassword: config.gmailAppPassword },
-      draft,
-      slug,
-      siteUrl,
-      parseRecipients(config.notifyEmails)
-    )
+    // Never throws — a sharing failure never blocks the 200 response.
     await shareStoryOnSocial(api, slug, siteUrl)
 
     return { ok: true, published: slug, title: draft.title }
