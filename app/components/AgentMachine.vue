@@ -167,8 +167,8 @@ const statLine = (id: AgentId) => {
 </script>
 
 <template>
-  <section class="overflow-hidden rounded-3xl bg-white shadow-warm">
-    <div class="flex flex-wrap items-end justify-between gap-3 px-6 pt-6">
+  <section>
+    <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="font-heading text-2xl font-extrabold text-navy sm:text-3xl">Agent machine</h1>
         <p class="mt-1 text-sm text-ink-muted">Four Claude agents in kidstory-api and how work flows between them. Hover an agent to trace its wiring.</p>
@@ -180,7 +180,7 @@ const statLine = (id: AgentId) => {
       </div>
     </div>
 
-    <div class="overflow-x-auto px-2 pb-2 pt-4">
+    <div class="-mx-4 overflow-x-auto px-4 pb-2 pt-4 sm:mx-0 sm:px-0">
       <svg viewBox="0 0 1000 630" class="block w-full min-w-[760px]" role="img" aria-label="Diagram of the story, social, books and support agents and how they connect">
         <defs>
           <pattern id="am-grid" width="22" height="22" patternUnits="userSpaceOnUse">
@@ -315,7 +315,7 @@ const statLine = (id: AgentId) => {
     </div>
 
     <!-- What the highlighted agent does -->
-    <div class="border-t border-tan/60 px-6 py-4">
+    <div class="mt-2 border-t border-tan/70 pt-4">
       <div class="flex flex-wrap gap-2">
         <button
           v-for="a in agents"
