@@ -119,10 +119,10 @@ interface Node {
 }
 
 const triggers: Node[] = [
-  { x: 10, y: 40, w: 170, title: 'You · Studio chat', sub: '/admin/studio' },
-  { x: 10, y: 85, w: 170, title: 'Morning cron', sub: 'daily · 07:00 PKT' },
+  { x: 10, y: 40, w: 170, title: 'Studio', sub: '/admin/studio' },
+  { x: 10, y: 85, w: 170, title: 'Automate', sub: 'daily · 07:00 PKT' },
   { x: 10, y: 130, w: 170, title: 'Partner apps', sub: 'API · MCP' },
-  { x: 10, y: 300, w: 170, title: 'Evening cron', sub: 'daily · 19:00 PKT' },
+  { x: 10, y: 300, w: 170, title: 'Automate', sub: 'daily · 19:00 PKT' },
   { x: 10, y: 520, w: 170, title: 'Site visitors', sub: 'chat bubble' },
   { x: 10, y: 650, w: 170, title: 'Visit tracker', sub: 'every page view' },
   { x: 10, y: 720, w: 170, title: 'You · Visitors page', sub: '/admin/visitors' }
@@ -389,7 +389,7 @@ const statLine = (id: AgentId) => {
         </g>
 
         <!-- Triggers -->
-        <g v-for="t in triggers" :key="t.title">
+        <g v-for="t in triggers" :key="t.y">
           <rect :x="t.x" :y="t.y" :width="t.w" height="40" rx="12" fill="#FFFFFF" filter="url(#am-shadow)" />
           <text :x="t.x + 12" :y="t.y + 17" font-size="12" font-weight="700" fill="#1B3B5F">{{ t.title }}</text>
           <text :x="t.x + 12" :y="t.y + 31" font-size="10" fill="#5B5347">{{ t.title === 'Visit tracker' && visitors?.liveNow ? `${visitors.liveNow} on the site now` : t.sub }}</text>
