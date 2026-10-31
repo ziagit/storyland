@@ -306,24 +306,25 @@ const statLine = (id: AgentId) => {
 
 <template>
   <section>
-    <div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 class="font-heading text-2xl font-extrabold text-navy sm:text-3xl">Agent machine</h1>
         <p class="mt-1 text-sm text-ink-muted">Five Claude agents in kidstory-api and how work flows between them. Hover an agent to trace its wiring.</p>
-        <p class="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold" aria-live="polite">
-          <span class="relative flex h-2.5 w-2.5">
-            <span v-if="busy" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green opacity-60" />
-            <span class="relative inline-flex h-2.5 w-2.5 rounded-full" :class="busy ? 'bg-green' : 'bg-[#D9D2C3]'" />
-          </span>
-          <template v-if="busy">
-            <span v-for="(line, i) in liveLines" :key="i" class="rounded-full bg-white px-3 py-1 text-navy shadow">{{ line }}</span>
-          </template>
-          <span v-else class="text-ink-muted">
-            Idle. The machine moves when an agent runs.
-            <template v-if="lastRun"> Last: {{ describe(lastRun) }}, {{ ago(lastRun.finishedAt ?? lastRun.startedAt) }}.</template>
-          </span>
-        </p>
       </div>
+      <!-- Live status, top right. -->
+      <p class="flex max-w-md flex-wrap items-center justify-end gap-2 text-right text-sm font-semibold sm:pt-2" aria-live="polite">
+        <span class="relative flex h-2.5 w-2.5">
+          <span v-if="busy" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green opacity-60" />
+          <span class="relative inline-flex h-2.5 w-2.5 rounded-full" :class="busy ? 'bg-green' : 'bg-[#D9D2C3]'" />
+        </span>
+        <template v-if="busy">
+          <span v-for="(line, i) in liveLines" :key="i" class="rounded-full bg-white px-3 py-1 text-navy shadow">{{ line }}</span>
+        </template>
+        <span v-else class="text-ink-muted">
+          Idle. The machine moves when an agent runs.
+          <template v-if="lastRun"> Last: {{ describe(lastRun) }}, {{ ago(lastRun.finishedAt ?? lastRun.startedAt) }}.</template>
+        </span>
+      </p>
     </div>
 
     <div class="-mx-4 overflow-x-auto px-4 pb-2 pt-4 sm:mx-0 sm:px-0">
