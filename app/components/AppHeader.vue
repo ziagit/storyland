@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { Search, Menu, X, User } from '@lucide/vue'
+import { Search, Menu, X } from '@lucide/vue'
 
 const mobileOpen = ref(false)
 const route = useRoute()
-const { user } = useAuth()
 
 const links = [
   { label: 'Home', to: '/' },
@@ -48,13 +47,6 @@ watch(
         >
           <Search class="h-5 w-5" />
         </NuxtLink>
-        <NuxtLink
-          to="/account"
-          :aria-label="user ? 'Your account' : 'Sign in'"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-navy transition-colors hover:bg-tan"
-        >
-          <User class="h-5 w-5" />
-        </NuxtLink>
       </div>
 
       <button
@@ -85,9 +77,6 @@ watch(
           class="block border-b border-tan/50 py-3 font-body font-bold text-navy last:border-none"
         >
           {{ link.label }}
-        </NuxtLink>
-        <NuxtLink to="/account" class="block border-b border-tan/50 py-3 font-body font-bold text-navy">
-          {{ user ? 'Your Account' : 'Sign In' }}
         </NuxtLink>
       </nav>
     </Transition>
