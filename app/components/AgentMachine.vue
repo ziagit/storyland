@@ -308,7 +308,7 @@ const statLine = (id: AgentId) => {
   <section>
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="font-heading text-2xl font-extrabold text-navy sm:text-3xl">Agent machine</h1>
+        <h1 class="font-heading text-2xl font-extrabold text-navy sm:text-3xl">Agents farm</h1>
         <p class="mt-1 text-sm text-ink-muted">Five Claude agents in kidstory-api and how work flows between them. Hover an agent to trace its wiring.</p>
       </div>
       <!-- Live status, top right. -->
@@ -321,7 +321,7 @@ const statLine = (id: AgentId) => {
           <span v-for="(line, i) in liveLines" :key="i" class="rounded-full bg-white px-3 py-1 text-navy shadow">{{ line }}</span>
         </template>
         <span v-else class="text-ink-muted">
-          Idle. The machine moves when an agent runs.
+          Idle. The farm moves when an agent runs.
           <template v-if="lastRun"> Last: {{ describe(lastRun) }}, {{ ago(lastRun.finishedAt ?? lastRun.startedAt) }}.</template>
         </span>
       </p>
