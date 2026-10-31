@@ -2,10 +2,9 @@
 import { Sparkles, Send, Loader2, Wand2, CircleCheck, CircleAlert, MessageCircle } from '@lucide/vue'
 import { categories } from '~/data/categories'
 
-definePageMeta({ middleware: 'studio' })
+definePageMeta({ layout: 'admin' })
 
-const { accessToken } = useAuth()
-const authHeaders = () => ({ Authorization: `Bearer ${accessToken.value}` })
+const adminFetch = useAdminApi()
 
 useSeoMeta({
   title: 'Studio',
@@ -79,9 +78,8 @@ async function generate(promptText: string) {
     // category/age selects only apply until there's a draft (they're hidden after),
     // so a follow-up like "make it a bedtime story" is free to change them.
     const revising = currentDraft.value !== null
-    const res = await $fetch<{ draft: StoryDraft; notes: string; history: ChatMessage[] }>('/api/studio/generate', {
+    const res = await adminFetch<{ draft: StoryDraft; notes: string; history: ChatMessage[] }>('/api/studio/generate', {
       method: 'POST',
-      headers: authHeaders(),
       body: {
         topic: promptText,
         category: (!revising && category.value) || undefined,
@@ -113,9 +111,8 @@ async function publish() {
   publishing.value = true
   error.value = ''
   try {
-    const res = await $fetch<{ slug: string }>('/api/studio/publish', {
+    const res = await adminFetch<{ slug: string }>('/api/studio/publish', {
       method: 'POST',
-      headers: authHeaders(),
       body: currentDraft.value
     })
     publishedSlug.value = res.slug
@@ -137,7 +134,7 @@ function startNewStory() {
 </script>
 
 <template>
-  <div class="mx-auto flex h-[calc(100dvh-65px)] max-w-7xl flex-col overflow-hidden px-4 py-4 sm:px-6">
+  <div class="mx-auto flex h-[calc(100dvh-100px)] max-w-7xl flex-col overflow-hidden px-4 py-4 sm:px-6 lg:h-screen lg:py-6">
     <div class="mb-4 shrink-0 text-center">
       <span class="mb-2 inline-flex items-center gap-2 rounded-full bg-tan px-4 py-1.5 text-sm font-bold text-green">
         <Wand2 class="h-4 w-4" /> Story Studio
@@ -180,7 +177,8 @@ function startNewStory() {
             <CircleCheck class="h-10 w-10 text-green" />
             <p class="font-bold text-navy">Published!</p>
             <div class="flex flex-wrap justify-center gap-3">
-              <UiButton :to="`/stories/${publishedSlug}`" variant="primary">Read it →</UiButton>
+              <UiButton :to="`/stories/${publishedSlug}`" variant="primary" target="_blank">Read it →</UiButton>
+              <UiButton :to="`/admin/stories/${publishedSlug}`" variant="secondary">Edit</UiButton>
               <UiButton variant="secondary" @click="startNewStory">Write another</UiButton>
             </div>
           </div>

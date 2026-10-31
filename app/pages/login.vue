@@ -9,7 +9,7 @@ useSeoMeta({
 const route = useRoute()
 const { user, ready, signInWithPassword, sendPasswordReset, signOut } = useAuth()
 
-const nextPath = typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/studio'
+const nextPath = typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/admin'
 
 const email = ref('')
 const password = ref('')
@@ -50,7 +50,7 @@ async function onForgot() {
     <div class="mx-auto max-w-md">
       <div class="rounded-3xl bg-white p-8 text-center shadow-warm">
         <span class="mb-3 inline-flex items-center gap-2 rounded-full bg-tan px-4 py-1.5 text-sm font-bold text-green">
-          <Wand2 class="h-4 w-4" /> Story Studio
+          <Wand2 class="h-4 w-4" /> Kidstory Admin
         </span>
         <h1 class="font-heading text-3xl font-bold text-navy">Sign in</h1>
 
@@ -58,12 +58,12 @@ async function onForgot() {
 
         <template v-else-if="user && !route.query.denied">
           <p class="mt-3 text-ink-muted">Signed in as <span class="font-bold text-navy">{{ user.email }}</span></p>
-          <UiButton :to="nextPath" variant="primary" class="mt-6 w-full justify-center">Open Studio</UiButton>
+          <UiButton :to="nextPath" variant="primary" class="mt-6 w-full justify-center">Open Admin</UiButton>
           <button type="button" class="mt-4 font-bold text-ink-muted hover:text-coral" @click="signOut">Sign out</button>
         </template>
 
         <template v-else>
-          <p class="mt-3 text-ink-muted">Enter your email and password to open the studio.</p>
+          <p class="mt-3 text-ink-muted">Enter your email and password to open the admin panel.</p>
           <form class="mt-6 flex flex-col gap-3 text-left" @submit.prevent="onSubmit">
             <input
               v-model="email"

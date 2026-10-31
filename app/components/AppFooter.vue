@@ -24,7 +24,7 @@ const socials = [
         <p class="mt-3 text-sm text-ink-muted">
           Warm, gentle stories that help little readers grow braver, kinder, and more curious — one page at a time.
         </p>
-        <UiButton to="/studio" variant="primary" class="mt-5 !px-5 !py-2.5 text-sm">
+        <UiButton to="/admin" variant="primary" class="mt-5 !px-5 !py-2.5 text-sm">
           Studio →
         </UiButton>
       </div>

@@ -31,8 +31,11 @@ export default defineNuxtConfig({
   routeRules: {
     // Auth lives in the browser (Supabase session in localStorage), so the server
     // can't tell who's asking: render these client-side only, behind the auth middleware.
-    '/studio': { ssr: false },
-    '/login': { ssr: false }
+    '/admin': { ssr: false },
+    '/admin/**': { ssr: false },
+    '/login': { ssr: false },
+    // The studio moved into the admin panel.
+    '/studio': { redirect: '/admin/studio' }
   },
   nitro: {
     // The daily-post cron route waits on two agent runs (story, then social) on

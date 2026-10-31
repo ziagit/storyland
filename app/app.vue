@@ -1,13 +1,8 @@
 <template>
-  <div class="flex min-h-screen flex-col bg-cream">
+  <div>
     <NuxtRouteAnnouncer />
-    <AppHeader />
-    <main class="flex-1">
+    <NuxtLayout>
       <NuxtPage />
-    </main>
-    <AppFooter />
-    <ClientOnly>
-      <SupportChat />
-    </ClientOnly>
+    </NuxtLayout>
   </div>
 </template>
