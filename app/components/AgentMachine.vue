@@ -37,7 +37,7 @@ const agents: Agent[] = [
     w: 250,
     tools: ['catalog_overview · search_catalog', 'submit_story · decline_request'],
     about:
-      'Looks at the catalog to find categories and ages that need stories, checks its idea isn’t a near-copy, then writes every field. submit_story checks the rules (length, title, tags) and sends problems back for it to fix. Once you publish, it passes the story to the Social agent.'
+      'Looks at the catalog to find categories and ages that need stories, checks its idea isn’t a near-copy, then writes every field. submit_story checks the rules (length, title, tags) and sends problems back for it to fix. Once a story is published, a copy is emailed to you and the story goes to the Social agent.'
   },
   {
     id: 'social',
@@ -103,7 +103,7 @@ const outputs: (Node & { color: string })[] = [
   { x: 840, y: 218, w: 150, title: 'Instagram', sub: '@kidstory64', color: '#E36656' },
   { x: 840, y: 333, w: 150, title: 'Book Picks', sub: '/books', color: '#D9A441' },
   { x: 840, y: 443, w: 150, title: 'Website', sub: 'story pages', color: '#3E9B76' },
-  { x: 840, y: 563, w: 150, title: 'Your inbox', sub: 'hand-offs', color: '#5BA3C9' }
+  { x: 840, y: 563, w: 150, title: 'Your inbox', sub: 'stories · hand-offs', color: '#5BA3C9' }
 ]
 
 interface Wire {
@@ -129,6 +129,7 @@ const wires: Wire[] = [
   { id: 'social-ig', d: 'M780,235 C810,235 810,240 840,240', color: '#E36656', agents: ['social'], dur: 1.6 },
   { id: 'books-picks', d: 'M500,355 L840,355', color: '#D9A441', agents: ['books'], dur: 3.4 },
   { id: 'catalog-site', d: 'M780,470 C810,470 810,465 840,465', color: '#3E9B76', agents: ['story'], dur: 1.6 },
+  { id: 'catalog-inbox', d: 'M780,505 C812,505 812,574 840,574', color: '#3E9B76', agents: ['story'], dur: 1.8 },
   { id: 'support-inbox', d: 'M500,585 C670,585 670,585 840,585', color: '#5BA3C9', agents: ['support'], dur: 3 }
 ]
 
@@ -140,6 +141,7 @@ const labels: { text: string; x: number; y: number; ink: string; agents: AgentId
   { text: 'new digest', x: 506, y: 287, ink: '#8A5F0E', agents: ['books', 'social'] },
   { text: 'digest', x: 640, y: 359, ink: '#8A5F0E', agents: ['books'] },
   { text: 'reads', x: 520, y: 530, ink: '#2B6F96', agents: ['support'] },
+  { text: 'email', x: 792, y: 546, ink: '#2F6F58', agents: ['story'] },
   { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] }
 ]
 
@@ -342,7 +344,7 @@ const statLine = (id: AgentId) => {
         <template v-if="selected">{{ selected.about }}</template>
         <template v-else>
           Triggers on the left start an agent. The Story and Books agents hand finished work to the Social agent, which shares it.
-          Stories land in the catalog that the Support agent reads from. Pick an agent to see what it does.
+          Every new story lands in the catalog, which the Support agent reads from, and a copy goes to your inbox. Pick an agent to see what it does.
         </template>
       </p>
     </div>
