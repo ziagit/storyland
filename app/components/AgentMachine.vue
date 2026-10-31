@@ -74,7 +74,7 @@ const agents: Agent[] = [
     color: '#D9A441',
     ink: '#8A5F0E',
     x: 250,
-    y: 250,
+    y: 200,
     w: 250,
     tools: ['web_search · recent_digests', 'publish_digest'],
     about:
@@ -87,7 +87,7 @@ const agents: Agent[] = [
     color: '#5BA3C9',
     ink: '#2B6F96',
     x: 250,
-    y: 470,
+    y: 370,
     w: 250,
     tools: ['find_stories · story_details', 'hand_off_to_owner'],
     about:
@@ -100,7 +100,7 @@ const agents: Agent[] = [
     color: '#8B6CC1',
     ink: '#5E4594',
     x: 250,
-    y: 640,
+    y: 540,
     w: 250,
     tools: ['visitor_stats · compare_periods', 'story_titles'],
     about:
@@ -122,10 +122,10 @@ const triggers: Node[] = [
   { x: 10, y: 40, w: 170, title: 'Studio', sub: '/admin/studio' },
   { x: 10, y: 85, w: 170, title: 'Automate', sub: 'daily · 07:00 PKT' },
   { x: 10, y: 130, w: 170, title: 'Partner apps', sub: 'API · MCP' },
-  { x: 10, y: 300, w: 170, title: 'Automate', sub: 'daily · 19:00 PKT' },
-  { x: 10, y: 520, w: 170, title: 'Site visitors', sub: 'chat bubble' },
-  { x: 10, y: 650, w: 170, title: 'Visit tracker', sub: 'every page view' },
-  { x: 10, y: 720, w: 170, title: 'You · Visitors page', sub: '/admin/visitors' }
+  { x: 10, y: 250, w: 170, title: 'Automate', sub: 'daily · 19:00 PKT' },
+  { x: 10, y: 420, w: 170, title: 'Site visitors', sub: 'chat bubble' },
+  { x: 10, y: 550, w: 170, title: 'Visit tracker', sub: 'every page view' },
+  { x: 10, y: 620, w: 170, title: 'You · Visitors page', sub: '/admin/visitors' }
 ]
 
 const outputs: (Node & { color: string })[] = [
@@ -134,8 +134,8 @@ const outputs: (Node & { color: string })[] = [
   { x: 840, y: 240, w: 150, title: 'YouTube', sub: 'when run locally', color: '#C4302B' },
   // Book Picks is a section of the website, so the digest lands there too.
   { x: 840, y: 333, w: 150, title: 'Website', sub: 'stories · Book Picks', color: '#3E9B76' },
-  { x: 840, y: 563, w: 150, title: 'Your inbox', sub: 'stories · hand-offs', color: '#5BA3C9' },
-  { x: 840, y: 688, w: 150, title: 'Visitors page', sub: 'numbers · reports', color: '#8B6CC1' }
+  { x: 840, y: 463, w: 150, title: 'Your inbox', sub: 'stories · hand-offs', color: '#5BA3C9' },
+  { x: 840, y: 588, w: 150, title: 'Visitors page', sub: 'numbers · reports', color: '#8B6CC1' }
 ]
 
 interface Wire {
@@ -153,25 +153,25 @@ const wires: Wire[] = [
   { id: 't-studio', d: 'M180,60 C215,60 215,75 250,75', color: '#3E9B76', agents: ['story'], dur: 2.2 },
   { id: 't-morning', d: 'M180,105 C215,105 215,100 250,100', color: '#3E9B76', agents: ['story'], dur: 2.6 },
   { id: 't-partner', d: 'M180,150 C215,150 215,125 250,125', color: '#3E9B76', agents: ['story'], dur: 3 },
-  { id: 't-evening', d: 'M180,320 L250,320', color: '#D9A441', agents: ['books'], dur: 2.4 },
-  { id: 't-readers', d: 'M180,540 L250,540', color: '#5BA3C9', agents: ['support'], dur: 2 },
+  { id: 't-evening', d: 'M180,270 L250,270', color: '#D9A441', agents: ['books'], dur: 2.4 },
+  { id: 't-readers', d: 'M180,440 L250,440', color: '#5BA3C9', agents: ['support'], dur: 2 },
   { id: 'story-social', d: 'M500,85 C540,85 540,190 580,190', color: '#3E9B76', agents: ['story', 'social'], dur: 2.4 },
-  { id: 'books-social', d: 'M500,300 C540,300 540,240 580,240', color: '#D9A441', agents: ['books', 'social'], dur: 2.4 },
-  { id: 'story-catalog', d: 'M500,150 C548,150 548,452 580,452', color: '#3E9B76', agents: ['story'], dur: 3.2 },
-  { id: 'support-catalog', d: 'M500,505 C540,505 540,500 580,500', color: '#5BA3C9', agents: ['support'], dashed: true, dur: 1.8 },
+  { id: 'books-social', d: 'M500,250 C540,250 540,240 580,240', color: '#D9A441', agents: ['books', 'social'], dur: 2.4 },
+  { id: 'story-catalog', d: 'M500,150 C548,150 548,352 580,352', color: '#3E9B76', agents: ['story'], dur: 3.2 },
+  { id: 'support-catalog', d: 'M500,405 C540,405 540,400 580,400', color: '#5BA3C9', agents: ['support'], dashed: true, dur: 1.8 },
   { id: 'social-fb', d: 'M790,180 C815,180 815,152 840,152', color: '#E36656', agents: ['social'], dur: 1.6 },
   { id: 'social-ig', d: 'M790,210 C815,210 815,207 840,207', color: '#E36656', agents: ['social'], dur: 1.6 },
   { id: 'social-youtube', d: 'M790,240 C815,240 815,262 840,262', color: '#E36656', agents: ['social'], dur: 1.6 },
-  { id: 'social-inbox', d: 'M790,276 C830,276 814,575 840,575', color: '#E36656', agents: ['social'], dur: 2.8 },
-  { id: 'books-catalog', d: 'M500,345 C538,345 538,474 580,474', color: '#D9A441', agents: ['books'], dur: 2.6 },
+  { id: 'social-inbox', d: 'M790,276 C830,276 814,475 840,475', color: '#E36656', agents: ['social'], dur: 2.8 },
+  { id: 'books-catalog', d: 'M500,295 C538,295 538,374 580,374', color: '#D9A441', agents: ['books'], dur: 2.6 },
   // A Studio publish also renders a short cover video and uploads it (the daily cron doesn't).
-  { id: 'catalog-site', d: 'M780,450 C812,450 812,365 840,365', color: '#1B3B5F', agents: ['story', 'books'], halo: true, dur: 1.6 },
-  { id: 'support-inbox', d: 'M500,585 C670,585 670,585 840,585', color: '#5BA3C9', agents: ['support'], dur: 3 },
+  { id: 'catalog-site', d: 'M780,350 C812,350 812,365 840,365', color: '#1B3B5F', agents: ['story', 'books'], halo: true, dur: 1.6 },
+  { id: 'support-inbox', d: 'M500,485 C670,485 670,485 840,485', color: '#5BA3C9', agents: ['support'], dur: 3 },
   // The tracker only saves visits, so its wire runs through the gap above the Visitors agent into the database.
-  { id: 't-tracker', d: 'M180,670 C215,670 215,622 250,622 L520,622 C610,622 640,590 640,520', color: '#8B6CC1', agents: ['visitors'], halo: true, dur: 3 },
-  { id: 't-owner', d: 'M180,740 C215,740 215,728 250,728', color: '#8B6CC1', agents: ['visitors'], dur: 2.2 },
-  { id: 'visitors-catalog', d: 'M500,680 C700,680 740,600 740,520', color: '#8B6CC1', agents: ['visitors'], dashed: true, halo: true, dur: 2.2 },
-  { id: 'visitors-page', d: 'M500,730 C670,730 670,710 840,710', color: '#8B6CC1', agents: ['visitors'], dur: 2.6 }
+  { id: 't-tracker', d: 'M180,570 C215,570 215,522 250,522 L520,522 C610,522 640,490 640,420', color: '#8B6CC1', agents: ['visitors'], halo: true, dur: 3 },
+  { id: 't-owner', d: 'M180,640 C215,640 215,628 250,628', color: '#8B6CC1', agents: ['visitors'], dur: 2.2 },
+  { id: 'visitors-catalog', d: 'M500,580 C700,580 740,500 740,420', color: '#8B6CC1', agents: ['visitors'], dashed: true, halo: true, dur: 2.2 },
+  { id: 'visitors-page', d: 'M500,630 C670,630 670,610 840,610', color: '#8B6CC1', agents: ['visitors'], dur: 2.6 }
 ]
 
 // Hover (or keyboard focus) previews an agent; a click pins it so the description stays.
@@ -179,12 +179,12 @@ const hovered = ref<AgentId | null>(null)
 const pinned = ref<AgentId | null>(null)
 const labels: { text: string; x: number; y: number; ink: string; agents: AgentId[] }[] = [
   { text: 'new story', x: 512, y: 70, ink: '#2F6F58', agents: ['story', 'social'] },
-  { text: 'new digest', x: 506, y: 287, ink: '#8A5F0E', agents: ['books', 'social'] },
-  { text: 'reads', x: 520, y: 530, ink: '#2B6F96', agents: ['support'] },
-  { text: 'email', x: 800, y: 498, ink: '#C2493A', agents: ['social'] },
-  { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] },
-  { text: 'visits', x: 548, y: 676, ink: '#5E4594', agents: ['visitors'] },
-  { text: 'report', x: 700, y: 724, ink: '#5E4594', agents: ['visitors'] }
+  { text: 'new digest', x: 506, y: 237, ink: '#8A5F0E', agents: ['books', 'social'] },
+  { text: 'reads', x: 520, y: 430, ink: '#2B6F96', agents: ['support'] },
+  { text: 'email', x: 800, y: 423, ink: '#C2493A', agents: ['social'] },
+  { text: 'needs you', x: 640, y: 489, ink: '#2B6F96', agents: ['support'] },
+  { text: 'visits', x: 548, y: 576, ink: '#5E4594', agents: ['visitors'] },
+  { text: 'report', x: 700, y: 624, ink: '#5E4594', agents: ['visitors'] }
 ]
 
 // --- live activity ---------------------------------------------------------
@@ -329,7 +329,7 @@ const statLine = (id: AgentId) => {
     </div>
 
     <div class="-mx-4 overflow-x-auto px-4 pb-2 pt-4 sm:mx-0 sm:px-0">
-      <svg viewBox="0 0 1000 800" class="block w-full min-w-[760px]" role="img" aria-label="Diagram of the story, social, books, support and visitors agents and how they connect">
+      <svg viewBox="0 0 1000 700" class="block w-full min-w-[760px]" role="img" aria-label="Diagram of the story, social, books, support and visitors agents and how they connect">
         <defs>
           <pattern id="am-grid" width="22" height="22" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="1" fill="#1B3B5F" opacity="0.07" />
@@ -342,7 +342,7 @@ const statLine = (id: AgentId) => {
             <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1B3B5F" flood-opacity="0.24" />
           </filter>
         </defs>
-        <rect width="1000" height="800" fill="url(#am-grid)" />
+        <rect width="1000" height="700" fill="url(#am-grid)" />
 
         <!-- Column captions -->
         <g font-size="10" font-weight="700" letter-spacing="1.5" fill="#1B3B5F" opacity="0.65">
@@ -394,16 +394,16 @@ const statLine = (id: AgentId) => {
 
         <!-- The shared database: stories and Book Picks digests -->
         <g :opacity="!active || active !== 'social' ? 1 : 0.45" class="transition-opacity duration-300">
-          <rect x="580" y="430" width="200" height="90" rx="16" fill="#FFFFFF" filter="url(#am-shadow)" />
-          <g transform="translate(606 458)" fill="none" stroke="#2F6F58" stroke-width="1.8">
+          <rect x="580" y="330" width="200" height="90" rx="16" fill="#FFFFFF" filter="url(#am-shadow)" />
+          <g transform="translate(606 358)" fill="none" stroke="#2F6F58" stroke-width="1.8">
             <ellipse cx="0" cy="0" rx="12" ry="4.5" />
             <path d="M-12,0 V18 A12,4.5 0 0 0 12,18 V0" />
             <path d="M-12,9 A12,4.5 0 0 0 12,9" />
           </g>
-          <text x="628" y="459" font-size="13.5" font-weight="700" fill="#1B3B5F">Database</text>
-          <text x="628" y="476" font-size="10.5" fill="#5B5347">{{ storyCount }} stories · {{ digestCount }} digests</text>
-          <text v-if="visitors" x="628" y="490" font-size="10.5" fill="#5B5347">{{ visitors.total.toLocaleString() }} visitors tracked</text>
-          <text x="628" y="505" font-size="10" fill="#5B5347" opacity="0.7">Supabase via kidstory-api</text>
+          <text x="628" y="359" font-size="13.5" font-weight="700" fill="#1B3B5F">Database</text>
+          <text x="628" y="376" font-size="10.5" fill="#5B5347">{{ storyCount }} stories · {{ digestCount }} digests</text>
+          <text v-if="visitors" x="628" y="390" font-size="10.5" fill="#5B5347">{{ visitors.total.toLocaleString() }} visitors tracked</text>
+          <text x="628" y="405" font-size="10" fill="#5B5347" opacity="0.7">Supabase via kidstory-api</text>
         </g>
 
         <!-- Agents -->
