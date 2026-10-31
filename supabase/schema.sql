@@ -133,3 +133,16 @@ create policy "Book digests are publicly readable"
   for select
   to anon, authenticated
   using (true);
+
+-- Agent activity for the admin dashboard's live agent machine (migration 005).
+create table if not exists public.agent_runs (
+  id uuid primary key default gen_random_uuid(),
+  agent text not null check (agent in ('story', 'social', 'books', 'support')),
+  action text not null default 'run',
+  status text not null default 'running' check (status in ('running', 'done', 'failed')),
+  detail jsonb not null default '{}'::jsonb,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz
+);
+create index if not exists agent_runs_started_at_idx on public.agent_runs (started_at desc);
+alter table public.agent_runs enable row level security;

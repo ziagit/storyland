@@ -62,6 +62,23 @@ export interface StoryAgentInput {
   draft?: StoryDraft
   // Earlier turns of a /studio conversation, as returned by the last call.
   history?: ChatMessage[]
+  // What asked for the story, shown on the admin dashboard's agent machine.
+  source?: AgentRunSource
+}
+
+export type AgentRunSource = 'studio' | 'cron' | 'partner' | 'mcp'
+
+/** One agent run (or story publish) from `GET /agents/activity`. */
+export interface AgentRun {
+  id: string
+  agent: 'story' | 'social' | 'books' | 'support'
+  // 'run', or 'publish' for a story going live.
+  action: string
+  status: 'running' | 'done' | 'failed'
+  // What started it and where its work went: { source }, { kind, platforms }, { published }, { handoff }…
+  detail: Record<string, any>
+  startedAt: string
+  finishedAt: string | null
 }
 
 export interface AgentStep {
@@ -315,6 +332,11 @@ export function runSupportAgent(
     readerToken,
     requireApiKey: true
   })
+}
+
+/** Agent runs and story publishes started in the last `seconds`, newest first. */
+export function listAgentActivity(config: KidstoryApiConfig, seconds = 600): Promise<AgentRun[]> {
+  return request<AgentRun[]>(config, '/agents/activity', { query: { seconds }, requireApiKey: true })
 }
 
 export function updateStory(config: KidstoryApiConfig, slug: string, changes: StoryUpdateInput): Promise<Story> {

@@ -9,7 +9,7 @@
 // revises it until it passes the catalog's checks. The /studio chat and the
 // unattended publishers all go through `createStoryWithAgent()`; the chat also
 // sends the current draft and history so follow-ups revise the same story.
-import { createStory, KidstoryApiError, runStoryAgent, type AgentStep, type KidstoryApiConfig } from './kidstory-api'
+import { createStory, KidstoryApiError, runStoryAgent, type AgentRunSource, type AgentStep, type KidstoryApiConfig } from './kidstory-api'
 
 export const CATEGORY_SLUGS = ['adventure', 'bedtime', 'animals', 'friendship', 'fairy-tale', 'funny'] as const
 export const AGE_RANGES = ['3-5', '6-8', '9-12', 'all-ages'] as const
@@ -61,8 +61,17 @@ export async function createStoryWithAgent(
     category,
     ageRange,
     draft,
-    history = []
-  }: { topic?: string; category?: string; ageRange?: string; draft?: StoryDraft; history?: ChatMessage[] } = {}
+    history = [],
+    source
+  }: {
+    topic?: string
+    category?: string
+    ageRange?: string
+    draft?: StoryDraft
+    history?: ChatMessage[]
+    // What asked for the story, for the admin dashboard's agent machine.
+    source?: AgentRunSource
+  } = {}
 ): Promise<{ draft: StoryDraft; notes: string; steps: AgentStep[]; history: ChatMessage[] }> {
   // The API only accepts the category/age values it knows; an unknown one would
   // be a 422, so drop it rather than fail the call.
@@ -72,7 +81,8 @@ export async function createStoryWithAgent(
       category: CATEGORY_SLUGS.includes(category as any) ? category : undefined,
       ageRange: AGE_RANGES.includes(ageRange as any) ? ageRange : undefined,
       draft,
-      history: history.slice(-12)
+      history: history.slice(-12),
+      source
     })
   } catch (err) {
     throw toAuthoringError(err)

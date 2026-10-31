@@ -25,7 +25,8 @@ export default defineEventHandler(async (event) => {
       category: body?.category,
       ageRange: body?.ageRange,
       draft: body?.draft && typeof body.draft === 'object' ? body.draft : undefined,
-      history: Array.isArray(body?.history) ? body.history : []
+      history: Array.isArray(body?.history) ? body.history : [],
+      source: 'studio'
     })
   } catch (err) {
     if (err instanceof StoryAuthoringError) {

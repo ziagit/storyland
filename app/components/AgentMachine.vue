@@ -1,12 +1,21 @@
 <script setup lang="ts">
 // The admin dashboard's "agent machine": kidstory-api's four Claude agents drawn as
 // one machine — what starts each agent, what it hands to the others, and where its
-// work ends up. Data flows as moving dots; hovering an agent lights up its wiring.
+// work ends up. It stays still until an agent really runs: then that agent's gear
+// turns and data flows along the wires it is using, from the moment the run starts
+// until LINGER_MS after it ends, so even a 5-second run is easy to watch.
+// Hovering an agent lights up its wiring.
+import type { AgentRun } from '../../shared/utils/kidstory-api'
+
 const props = defineProps<{
   storyCount: number
   digestCount: number
   lastStoryAt: string | null
   lastDigestAt: string | null
+  // Recent runs from GET /api/admin/agent-activity, newest first.
+  runs: AgentRun[]
+  // The current time in ms on the server's clock (the runs' timestamps are server-side).
+  now: number
 }>()
 
 type AgentId = 'story' | 'social' | 'books' | 'support'
@@ -152,10 +161,89 @@ const labels: { text: string; x: number; y: number; ink: string; agents: AgentId
   { text: 'needs you', x: 640, y: 589, ink: '#2B6F96', agents: ['support'] }
 ]
 
+// --- live activity ---------------------------------------------------------
+
+// How long an agent keeps moving after its run ends.
+const LINGER_MS = 10_000
+// A run still "running" after this was cut off (a serverless timeout) and never finished.
+const STALE_MS = 5 * 60_000
+
+const isLive = (run: AgentRun) => {
+  const started = Date.parse(run.startedAt)
+  if (run.status === 'running') return props.now - started < STALE_MS
+  return props.now < Date.parse(run.finishedAt ?? run.startedAt) + LINGER_MS
+}
+
+const TRIGGER_WIRE: Record<string, string> = { studio: 't-studio', cron: 't-morning', partner: 't-partner', mcp: 't-partner' }
+const PLATFORM_WIRE: Record<string, string> = { facebook: 'social-fb', instagram: 'social-ig', youtube: 'social-youtube', email: 'social-inbox' }
+
+/** The wires a run is using. Outputs light up only once the run has really produced them. */
+function wiresFor(run: AgentRun): string[] {
+  const d = run.detail ?? {}
+  switch (run.agent) {
+    case 'story':
+      if (run.action === 'publish') return ['story-catalog', 'catalog-site']
+      return TRIGGER_WIRE[d.source] ? [TRIGGER_WIRE[d.source]] : []
+    case 'social':
+      return [d.kind === 'books' ? 'books-social' : 'story-social', ...((d.platforms as string[]) ?? []).map((p) => PLATFORM_WIRE[p]).filter(Boolean)]
+    case 'books':
+      return ['t-evening', ...(d.published ? ['books-catalog', 'catalog-site'] : [])]
+    case 'support':
+      return ['t-readers', 'support-catalog', ...(d.handoff ? ['support-inbox'] : [])]
+  }
+  return []
+}
+
+const liveRuns = computed(() => props.runs.filter(isLive))
+const liveWires = computed(() => new Set(liveRuns.value.flatMap(wiresFor)))
+const working = computed(() => new Set(liveRuns.value.filter((r) => r.action === 'run').map((r) => r.agent)))
+const busy = computed(() => liveWires.value.size > 0 || working.value.size > 0)
+
+const SOURCE_LABEL: Record<string, string> = { studio: 'from the Studio', cron: 'on the morning cron', partner: 'for a partner app', mcp: 'over MCP' }
+const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id
+
+/** What a live run is doing, in a few words for the status line and the card. */
+function describe(run: AgentRun): string {
+  const d = run.detail ?? {}
+  const verb = run.status === 'running' ? 'is' : run.status === 'failed' ? 'failed' : 'finished'
+  if (run.action === 'publish') return `Story published${d.slug ? ` · ${d.slug}` : ''}`
+  switch (run.agent) {
+    case 'story':
+      return run.status === 'running' ? `Story agent is writing ${SOURCE_LABEL[d.source] ?? ''}`.trim() : `Story agent ${verb} writing`
+    case 'social':
+      if (run.status === 'running') return `Social agent is sharing a ${d.kind === 'books' ? 'digest' : 'story'}`
+      return d.platforms?.length ? `Social agent shared to ${d.platforms.join(', ')}` : `Social agent ${verb}`
+    case 'books':
+      return run.status === 'running' ? 'Books agent is researching bestsellers' : `Books agent ${verb}`
+    case 'support':
+      return run.status === 'running' ? 'Support agent is answering a reader' : d.handoff ? 'Support agent handed a chat to you' : 'Support agent answered a reader'
+  }
+  return `${agentName(run.agent)} ${verb}`
+}
+
+const liveLines = computed(() => liveRuns.value.map(describe))
+const lastRun = computed(() => props.runs[0] ?? null)
+const ago = (iso: string) => {
+  const s = Math.max(0, Math.round((props.now - Date.parse(iso)) / 1000))
+  return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`
+}
+
+/** The card's bottom line while its agent is live. */
+function liveStat(id: AgentId): string | null {
+  const run = liveRuns.value.find((r) => r.agent === id && r.action === 'run')
+  if (!run) return null
+  return run.status === 'running' ? 'Working…' : run.status === 'failed' ? 'Run failed' : 'Done ✓'
+}
+
 const active = computed(() => hovered.value ?? pinned.value)
 const togglePin = (id: AgentId) => (pinned.value = pinned.value === id ? null : id)
 const selected = computed(() => agents.find((a) => a.id === active.value) ?? null)
-const wireOpacity = (w: Wire) => (!active.value ? 0.85 : w.agents.includes(active.value) ? 1 : 0.12)
+const wireOpacity = (w: Wire) => {
+  if (active.value) return w.agents.includes(active.value) ? 1 : 0.12
+  // While something runs, the wires it isn't using step back.
+  if (busy.value) return liveWires.value.has(w.id) ? 1 : 0.3
+  return 0.85
+}
 // An agent stays lit when it's wired to the highlighted one (e.g. Books → Social).
 const linked = computed(() => new Set(wires.filter((w) => active.value && w.agents.includes(active.value)).flatMap((w) => w.agents)))
 const cardOpacity = (id: AgentId) => (!active.value || linked.value.has(id) || active.value === id ? 1 : 0.45)
@@ -187,6 +275,19 @@ const statLine = (id: AgentId) => {
       <div>
         <h1 class="font-heading text-2xl font-extrabold text-navy sm:text-3xl">Agent machine</h1>
         <p class="mt-1 text-sm text-ink-muted">Four Claude agents in kidstory-api and how work flows between them. Hover an agent to trace its wiring.</p>
+        <p class="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold" aria-live="polite">
+          <span class="relative flex h-2.5 w-2.5">
+            <span v-if="busy" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green opacity-60" />
+            <span class="relative inline-flex h-2.5 w-2.5 rounded-full" :class="busy ? 'bg-green' : 'bg-[#D9D2C3]'" />
+          </span>
+          <template v-if="busy">
+            <span v-for="(line, i) in liveLines" :key="i" class="rounded-full bg-white px-3 py-1 text-navy shadow">{{ line }}</span>
+          </template>
+          <span v-else class="text-ink-muted">
+            Idle. The machine moves when an agent runs.
+            <template v-if="lastRun"> Last: {{ describe(lastRun) }}, {{ ago(lastRun.finishedAt ?? lastRun.startedAt) }}.</template>
+          </span>
+        </p>
       </div>
       <div class="flex flex-wrap gap-3 text-xs font-semibold text-ink-muted">
         <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-white shadow" /> Triggers</span>
@@ -233,10 +334,10 @@ const statLine = (id: AgentId) => {
           </template>
         </g>
 
-        <!-- Data flowing along the wires -->
+        <!-- Data flowing along the wires a live run is using -->
         <g v-if="animate">
-          <template v-for="w in wires" :key="`dots-${w.id}`">
-            <circle v-for="n in 2" :key="n" r="4" :fill="w.color" :opacity="wireOpacity(w) > 0.2 ? 1 : 0.15">
+          <template v-for="w in wires.filter((w) => liveWires.has(w.id))" :key="`dots-${w.id}`">
+            <circle v-for="n in 2" :key="n" r="4.5" :fill="w.color">
               <animateMotion :dur="`${w.dur}s`" :begin="`${(n - 1) * (w.dur / 2)}s`" repeatCount="indefinite">
                 <mpath :href="`#am-${w.id}`" />
               </animateMotion>
@@ -288,7 +389,7 @@ const statLine = (id: AgentId) => {
           @click="togglePin(a.id)"
           @keydown.enter="togglePin(a.id)"
         >
-          <rect :x="a.x" :y="a.y" :width="a.w" :height="a.h ?? CARD_H" rx="18" fill="#FFFFFF" :filter="active === a.id ? 'url(#am-shadow-lift)' : 'url(#am-shadow)'" />
+          <rect :x="a.x" :y="a.y" :width="a.w" :height="a.h ?? CARD_H" rx="18" fill="#FFFFFF" :filter="active === a.id || working.has(a.id) ? 'url(#am-shadow-lift)' : 'url(#am-shadow)'" />
           <rect :x="a.x" :y="a.y + 18" width="4" height="36" rx="2" :fill="a.color" />
 
           <!-- Gear -->
@@ -297,7 +398,7 @@ const statLine = (id: AgentId) => {
             <g>
               <circle r="8.5" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-dasharray="3.2 2.5" />
               <circle r="3" fill="#FFFFFF" />
-              <animateTransform v-if="animate" attributeName="transform" type="rotate" from="0" to="360" :dur="a.id === 'social' ? '4s' : '6s'" repeatCount="indefinite" />
+              <animateTransform v-if="animate && working.has(a.id)" attributeName="transform" type="rotate" from="0" to="360" :dur="a.id === 'social' ? '4s' : '6s'" repeatCount="indefinite" />
             </g>
           </g>
 
@@ -305,8 +406,8 @@ const statLine = (id: AgentId) => {
           <text :x="a.x + 58" :y="a.y + 50" font-size="11" fill="#5B5347">{{ a.role }}</text>
 
           <!-- Status light -->
-          <circle :cx="a.x + a.w - 18" :cy="a.y + 20" r="5" :fill="a.color">
-            <animate v-if="animate" attributeName="opacity" values="1;0.35;1" dur="1.8s" repeatCount="indefinite" />
+          <circle :cx="a.x + a.w - 18" :cy="a.y + 20" r="5" :fill="working.has(a.id) ? a.color : '#D9D2C3'">
+            <animate v-if="animate && working.has(a.id)" attributeName="opacity" values="1;0.35;1" dur="1.2s" repeatCount="indefinite" />
           </circle>
 
           <line :x1="a.x + 14" :x2="a.x + a.w - 14" :y1="a.y + 66" :y2="a.y + 66" stroke="#E9DAB8" />
@@ -320,7 +421,7 @@ const statLine = (id: AgentId) => {
             font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
             fill="#1B3B5F"
           >{{ line }}</text>
-          <text :x="a.x + 16" :y="a.y + (a.h ?? CARD_H) - 10" font-size="10.5" font-weight="700" :fill="a.ink">{{ statLine(a.id) }}</text>
+          <text :x="a.x + 16" :y="a.y + (a.h ?? CARD_H) - 10" font-size="10.5" font-weight="700" :fill="a.ink">{{ liveStat(a.id) ?? statLine(a.id) }}</text>
         </g>
 
         <!-- Outputs -->

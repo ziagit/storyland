@@ -29,7 +29,8 @@ export default defineEventHandler(async (event) => {
     // (recordAs is null) it chooses its own instead of retelling an old one.
     const { draft, notes } = await createStoryWithAgent(api, {
       topic: picked.recordAs ? picked.topic : undefined,
-      category: picked.recordAs ? picked.category : undefined
+      category: picked.recordAs ? picked.category : undefined,
+      source: 'cron'
     })
     console.log(`Story agent: ${notes}`)
 

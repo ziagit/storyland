@@ -49,7 +49,8 @@ async function main() {
   // An unused premise steers the agent; once the pool is used up it picks its own.
   const { draft, notes, steps } = await createStoryWithAgent(api, {
     topic: picked.recordAs ? picked.topic : undefined,
-    category: picked.recordAs ? picked.category : undefined
+    category: picked.recordAs ? picked.category : undefined,
+    source: 'cron'
   })
   for (const step of steps) console.log(`  ${step.tool}: ${step.detail}`)
   console.log(`Story agent: ${notes}`)
