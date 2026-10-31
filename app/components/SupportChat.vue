@@ -2,7 +2,7 @@
 import { MessageCircle, Send, X } from '@lucide/vue'
 import type { ChatMessage } from '../../shared/utils/story-authoring'
 
-const GREETING = "Hi! I'm Kidstory's helper. Ask me about stories for your child, signing in, or Full Access."
+const GREETING = "Hi! I'm Kidstory's helper. Ask me about stories for your child or signing in."
 
 const { accessToken } = useAuth()
 const open = ref(false)
@@ -15,8 +15,8 @@ const history = ref<ChatMessage[]>([])
 const scroller = ref<HTMLElement | null>(null)
 const input = ref<HTMLTextAreaElement | null>(null)
 
-// Site paths in a reply ("/stories/moonlight-friends", "/checkout") become links.
-const PATH = /(\/(?:stories\/[a-z0-9-]+|stories|account|checkout|contact|about))(?=[\s.,;:!?)]|$)/g
+// Site paths in a reply ("/stories/moonlight-friends", "/account") become links.
+const PATH = /(\/(?:stories\/[a-z0-9-]+|stories|account|contact|about))(?=[\s.,;:!?)]|$)/g
 
 function segments(text: string): { text: string; to?: string }[] {
   const parts: { text: string; to?: string }[] = []

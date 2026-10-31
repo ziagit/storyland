@@ -15,7 +15,7 @@ Version 1.0 · Draft for review
 | **Audience** | Kids of all ages (and the parents/guardians/teachers browsing with or for them) |
 | **Tech stack** | Nuxt 4 + Tailwind CSS |
 | **Content management** | Stories stored in a Supabase Postgres database, accessed by the site **only through the `kidstory-api` companion service** (§10) — the Nuxt app itself never queries the `stories` table directly. Plus an unlisted AI-assisted authoring tool (`/studio`) that publishes new stories through the API — see §3.7 |
-| **Monetization** | The 5 oldest stories are free forever; every other story (including all future ones) requires a one-time $9.99 Stripe payment to read past the opening paragraph — see §9 |
+| **Monetization** | None. Every story is free to read in full (the 2026-08 paywall in §9 was removed on 2026-10-31) |
 | **Companion API** | `kidstory-api` — a standalone FastAPI service in a sibling folder (`../kidstory-api`, own git repo) exposing the story catalog over REST; the site's only path to story data — see §10 |
 | **Visual reference** | Attached sample design (warm, illustrated, editorial blog layout) |
 | **Logo** | Provided (`logo.png`) — circular mark + wordmark + tagline lockup |
@@ -99,11 +99,10 @@ Modeled closely on the reference layout:
 - Contact form: name, email, message (client-side validated; submit handler to be defined — see Open Questions on backend/email delivery).
 - Optional: social links, simple FAQ.
 
-### 3.6 Account (`/account`) & Checkout (`/checkout`)
-- `/account`: public, nav-linked page (icon in header, next to Search) for reader sign-in and access status.
+### 3.6 Account (`/account`)
+- `/account`: public, nav-linked page (icon in header, next to Search) for reader sign-in.
 - Passwordless sign-in: enter an email, receive a Supabase Auth magic link, click it to return signed in — no password to set or manage.
-- Once signed in: shows the reader's email, their access status (free tier vs. full access), and — if not yet unlocked — a link to `/checkout`.
-- `/checkout`: the site's own custom-branded payment page (not a Stripe-hosted redirect) — see §9 for how the embedded Stripe Payment Element is styled to match the site. Requires sign-in (redirects to `/account?next=/checkout` otherwise). After a successful payment, access unlocks within a few seconds (the Stripe webhook that grants it lands asynchronously).
+- Once signed in: shows the reader's email, a note that every story is free, and a sign-out button. (`/checkout` was removed with the paywall on 2026-10-31.)
 
 ### 3.7 Studio (`/studio`) — internal authoring tool
 - Unlisted page (not linked from nav/footer, no auth) for the site owner to draft new stories with an AI model and publish them.
@@ -264,6 +263,8 @@ Implementation: Tailwind transition utilities + `@vueuse/motion` (or CSS keyfram
 ---
 
 ## 9. Payments & Access
+
+> **Removed 2026-10-31.** The paywall below is no longer in the app: every story is free to read in full, and `/checkout`, the Stripe routes and the entitlement checks were deleted. Kept as history; `stories.is_premium` and `entitlements` still exist in the database but nothing reads them.
 
 - **Model:** one-time payment, not a subscription. $9.99 USD unlocks every story — current and future — forever, for that Supabase Auth account. Chosen over per-story purchases or a subscription for simplicity: no recurring billing, no renewal/cancellation webhooks to handle.
 - **Free tier:** the 5 oldest stories (by `published_at`) are free to read in full, with no sign-in required. This set is fixed by a one-time database backfill (not recomputed on every request), so it never shifts as new stories get published — a story that was free stays free. Every other story, including all future `/studio` and auto-posted stories, defaults to paywalled (`is_premium = true`).

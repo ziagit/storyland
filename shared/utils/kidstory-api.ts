@@ -21,13 +21,10 @@ export interface StorySummary {
   tags: string[]
   coverImageUrl: string | null
   publishedAt: string
-  isPremium: boolean
 }
 
 export interface Story extends StorySummary {
   body: string[]
-  locked: boolean
-  lockedBodyCount: number | null
 }
 
 export interface StoryList {
@@ -47,7 +44,6 @@ export interface StoryListFilters {
 }
 
 export interface StoryCreateInput extends StoryDraft {
-  isPremium?: boolean
   slug?: string
   coverImageUrl?: string | null
   publishedAt?: string
@@ -190,7 +186,7 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   query?: Record<string, string | number | undefined>
   body?: unknown
-  // Reader's Supabase access token, forwarded so the API can unlock premium stories.
+  // Reader's Supabase access token, forwarded so the support agent knows they're signed in.
   readerToken?: string | null
   // Write endpoints need the API key; reads are public.
   requireApiKey?: boolean
@@ -276,8 +272,8 @@ export async function listAllStories(
   return items
 }
 
-export function getStory(config: KidstoryApiConfig, slug: string, readerToken?: string | null): Promise<Story> {
-  return request<Story>(config, `/stories/${encodeURIComponent(slug)}`, { readerToken })
+export function getStory(config: KidstoryApiConfig, slug: string): Promise<Story> {
+  return request<Story>(config, `/stories/${encodeURIComponent(slug)}`)
 }
 
 export function createStory(config: KidstoryApiConfig, input: StoryCreateInput): Promise<Story> {

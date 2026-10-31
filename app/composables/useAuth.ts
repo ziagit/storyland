@@ -5,7 +5,6 @@ let initialized = false
 
 const user = ref<User | null>(null)
 const accessToken = ref<string | null>(null)
-const hasAccess = ref(false)
 const ready = ref(false)
 
 function getClient(): SupabaseClient | null {
@@ -19,21 +18,6 @@ function getClient(): SupabaseClient | null {
   return client
 }
 
-async function refreshAccessStatus() {
-  if (!accessToken.value) {
-    hasAccess.value = false
-    return
-  }
-  try {
-    const res = await $fetch<{ signedIn: boolean; hasAccess: boolean }>('/api/account/status', {
-      headers: { Authorization: `Bearer ${accessToken.value}` }
-    })
-    hasAccess.value = res.hasAccess
-  } catch {
-    hasAccess.value = false
-  }
-}
-
 function init() {
   if (initialized || !import.meta.client) return
   initialized = true
@@ -43,13 +27,11 @@ function init() {
     user.value = data.session?.user ?? null
     accessToken.value = data.session?.access_token ?? null
     ready.value = true
-    refreshAccessStatus()
   })
 
   supabase.auth.onAuthStateChange((_event, session) => {
     user.value = session?.user ?? null
     accessToken.value = session?.access_token ?? null
-    refreshAccessStatus()
   })
 }
 
@@ -69,8 +51,7 @@ export function useAuth() {
     await supabase?.auth.signOut()
     user.value = null
     accessToken.value = null
-    hasAccess.value = false
   }
 
-  return { user, accessToken, hasAccess, ready, signInWithOtp, signOut, refreshAccessStatus }
+  return { user, accessToken, ready, signInWithOtp, signOut }
 }

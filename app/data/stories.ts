@@ -14,11 +14,6 @@ export interface Story {
   body: string[]
   coverImageUrl: string | null
   publishedAt: string
-  isPremium: boolean
-  /** True when the API withheld the full body because the reader hasn't unlocked this premium story. */
-  locked: boolean
-  /** Only present when locked: true — total paragraph count, for "N more paragraphs" style UI. */
-  lockedBodyCount?: number
 }
 
 export function formatDate(story: Story): string {

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { Mail, CheckCircle2, Lock } from '@lucide/vue'
+import { Mail, BookOpen } from '@lucide/vue'
 
 useSeoMeta({
   title: 'Account',
-  description: 'Sign in to Kidstory and unlock every story with a one-time purchase.'
+  description: 'Sign in to Kidstory with a magic link — no password needed.'
 })
 
 const route = useRoute()
-const { user, hasAccess, ready, signInWithOtp, signOut, refreshAccessStatus } = useAuth()
+const { user, ready, signInWithOtp, signOut } = useAuth()
 
 const email = ref('')
 const sendState = ref<'idle' | 'sending' | 'sent' | 'error'>('idle')
@@ -33,19 +33,6 @@ watch(user, (u) => {
     navigateTo(route.query.next)
   }
 })
-
-// Coming back from Stripe: the webhook that grants access lands asynchronously,
-// so poll briefly rather than trusting the redirect alone.
-if (import.meta.client && route.query.checkout === 'success') {
-  let attempts = 0
-  const poll = setInterval(async () => {
-    attempts += 1
-    await refreshAccessStatus()
-    if (hasAccess.value || attempts >= 6) {
-      clearInterval(poll)
-    }
-  }, 2000)
-}
 </script>
 
 <template>
@@ -80,18 +67,12 @@ if (import.meta.client && route.query.checkout === 'success') {
         <template v-else>
           <p class="mt-3 text-ink-muted">Signed in as <span class="font-bold text-navy">{{ user.email }}</span></p>
 
-          <div v-if="hasAccess" class="mt-6 rounded-2xl bg-green/10 p-5">
-            <CheckCircle2 class="mx-auto h-8 w-8 text-green" />
-            <p class="mt-2 font-bold text-navy">Full access unlocked!</p>
-            <p class="text-sm text-ink-muted">Every story on Kidstory is yours to read, forever.</p>
-          </div>
-
-          <div v-else class="mt-6 rounded-2xl bg-tan/60 p-5">
-            <Lock class="mx-auto h-8 w-8 text-navy" />
-            <p class="mt-2 font-bold text-navy">You're on the free tier</p>
-            <p class="text-sm text-ink-muted">A handful of stories are free — unlock the rest with a one-time payment.</p>
-            <UiButton to="/checkout" variant="primary" class="mt-4 w-full justify-center">
-              Unlock All Stories — $9.99
+          <div class="mt-6 rounded-2xl bg-green/10 p-5">
+            <BookOpen class="mx-auto h-8 w-8 text-green" />
+            <p class="mt-2 font-bold text-navy">Every story is free</p>
+            <p class="text-sm text-ink-muted">Read as many as you like, as often as you like.</p>
+            <UiButton to="/stories" variant="primary" class="mt-4 w-full justify-center">
+              Browse Stories
             </UiButton>
           </div>
 

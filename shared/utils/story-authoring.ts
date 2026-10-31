@@ -81,7 +81,7 @@ export async function createStoryWithAgent(
 
 export async function publishStoryDraft(api: KidstoryApiConfig, draft: StoryDraft): Promise<{ slug: string }> {
   // The API derives the slug (with `-2`/`-3`… on collision), the cover image URL
-  // and `publishedAt`, and defaults new stories to premium — same rules that used
+  // and `publishedAt` — same rules that used
   // to live here, now enforced in one place for every client.
   try {
     const story = await createStory(api, draft)
