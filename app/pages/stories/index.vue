@@ -14,7 +14,9 @@ const { data: stories } = await useFetch<Story[]>('/api/stories')
 const search = ref(typeof route.query.search === 'string' ? route.query.search : '')
 const category = ref(typeof route.query.category === 'string' ? route.query.category : 'all')
 const age = ref('all')
-const visibleCount = ref(8)
+// Stories shown at first, and added by each "Load More".
+const PAGE_SIZE = 20
+const visibleCount = ref(PAGE_SIZE)
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -34,7 +36,7 @@ const visibleStories = computed(() => filtered.value.slice(0, visibleCount.value
 const hasMore = computed(() => visibleCount.value < filtered.value.length)
 
 watch([search, category, age], () => {
-  visibleCount.value = 8
+  visibleCount.value = PAGE_SIZE
 })
 </script>
 
@@ -63,7 +65,7 @@ watch([search, category, age], () => {
       </div>
 
       <div v-if="hasMore" class="mt-10 flex justify-center">
-        <UiButton variant="secondary" @click="visibleCount += 8">Load More Stories</UiButton>
+        <UiButton variant="secondary" @click="visibleCount += PAGE_SIZE">Load More Stories</UiButton>
       </div>
     </div>
   </div>
