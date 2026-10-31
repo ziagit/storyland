@@ -324,11 +324,6 @@ const statLine = (id: AgentId) => {
           </span>
         </p>
       </div>
-      <div class="flex flex-wrap gap-3 text-xs font-semibold text-ink-muted">
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-white shadow" /> Triggers</span>
-        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded bg-white shadow-md" /> Agents</span>
-        <span class="flex items-center gap-1.5"><span class="h-0 w-4 border-t-2 border-dashed border-navy/40" /> Reads</span>
-      </div>
     </div>
 
     <div class="-mx-4 overflow-x-auto px-4 pb-2 pt-4 sm:mx-0 sm:px-0">
