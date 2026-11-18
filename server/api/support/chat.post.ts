@@ -41,7 +41,7 @@ function cleanHistory(value: unknown): ChatMessage[] {
 }
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ message?: unknown; history?: unknown }>(event)
+  const body = await readBody<{ message?: unknown; history?: unknown; voice?: unknown }>(event)
   const message = typeof body?.message === 'string' ? body.message.trim() : ''
   if (!message) {
     throw createError({ statusCode: 400, statusMessage: 'Type a message first.' })
@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
   const readerToken = getReaderToken(event)
   let result
   try {
-    result = await runSupportAgent(useKidstoryApi(), { message, history: cleanHistory(body?.history) }, readerToken)
+    result = await runSupportAgent(useKidstoryApi(), { message, history: cleanHistory(body?.history), voice: body?.voice === true }, readerToken)
   } catch (err) {
     if (err instanceof KidstoryApiError) {
       console.error('Support agent failed:', err.message)

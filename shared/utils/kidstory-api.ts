@@ -216,6 +216,8 @@ export interface SupportAgentInput {
   message: string
   // Earlier turns of the chat, as returned by the last call.
   history?: ChatMessage[]
+  // The reader spoke the message and will hear the reply read aloud.
+  voice?: boolean
 }
 
 export interface SupportHandoff {

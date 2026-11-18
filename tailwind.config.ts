@@ -48,13 +48,18 @@ export default <Partial<Config>>{
         'fade-slide-up': {
           '0%': { opacity: '0', transform: 'translateY(16px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' }
+        },
+        'sound-bar': {
+          '0%, 100%': { height: '0.375rem' },
+          '50%': { height: '1.25rem' }
         }
       },
       animation: {
         float: 'float 5s ease-in-out infinite',
         'pop-heart': 'pop-heart 0.4s ease-out',
         sparkle: 'sparkle 3s ease-in-out infinite',
-        'fade-slide-up': 'fade-slide-up 0.6s ease-out both'
+        'fade-slide-up': 'fade-slide-up 0.6s ease-out both',
+        'sound-bar': 'sound-bar 0.9s ease-in-out infinite'
       }
     }
   },
