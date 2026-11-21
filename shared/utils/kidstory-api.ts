@@ -216,8 +216,6 @@ export interface SupportAgentInput {
   message: string
   // Earlier turns of the chat, as returned by the last call.
   history?: ChatMessage[]
-  // The reader spoke the message and will hear the reply read aloud.
-  voice?: boolean
 }
 
 export interface SupportHandoff {
@@ -232,8 +230,6 @@ export interface SupportAgentResult {
   handoff: SupportHandoff | null
   steps: AgentStep[]
   history: ChatMessage[]
-  // The slug of a story the reader asked to hear; the chat reads it aloud after the reply.
-  readAloud?: string | null
 }
 
 export interface Category {
