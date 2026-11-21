@@ -57,6 +57,8 @@ async function generate(
 ): Promise<GenerateResponse> {
   const key = apiKey()
   let lastError = 'Gemini request failed.'
+  // Whether every model said its free limit is used up (each has its own daily quota).
+  let allOverLimit = true
   for (const model of candidates) {
     try {
       return await $fetch<GenerateResponse>(`${API}/${model}:generateContent`, {
@@ -67,12 +69,17 @@ async function generate(
       })
     } catch (err: any) {
       lastError = err?.data?.error?.message || err?.message || lastError
+      if (err?.statusCode !== 429) allOverLimit = false
       // Busy, over the free tier's limit, gone, or too slow: try the next model. Anything else is our request.
       const timedOut = err?.name === 'FetchError' && !err?.statusCode
       if (!timedOut && ![404, 429, 500, 503].includes(err?.statusCode)) break
     }
   }
   console.error('Gemini speech failed:', lastError)
+  if (allOverLimit) {
+    // A 429 tells the page to use the browser's own voice instead, without asking again.
+    throw createError({ statusCode: 429, statusMessage: "Gemini's free speech limit is used up for now." })
+  }
   throw createError({ statusCode: 502, statusMessage: `Gemini: ${lastError}` })
 }
 

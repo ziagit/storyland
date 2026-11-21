@@ -1,6 +1,7 @@
 // The Studio voice agent's ears and voice. Gemini speaks (through
 // /api/studio/voice/speak) and turns what the owner says into text (through
-// /api/studio/voice/transcribe).
+// /api/studio/voice/transcribe). When Gemini can't speak (its free tier allows only
+// a few requests a day), the browser's own voice reads instead.
 //
 // The mic is opened with the browser's echo cancellation, which takes the agent's
 // own voice out of what it hears, and stays open while the Voice tab is in use, so
@@ -109,16 +110,23 @@ export function useStudioVoice(onAsk: (text: string) => void, enabled: () => boo
   // Whether the reply was paused because the owner started talking (not because they said pause).
   let held = false
 
-  // Playback: one part at a time, the next one fetched while the current one plays.
+  // Playback: one part at a time, with every part's audio requested up front. A part
+  // Gemini can't voice (its free daily limit, say) is read by the browser's own voice.
   const audio = import.meta.client ? new Audio() : null
-  let queue: string[] = []
-  let nextAudio: Promise<string | null> | null = null
+  let queue: { text: string; audio: Promise<string | null> }[] = []
   let generation = 0
   let spokenPairs = new Set<string>()
+  // Gemini's free speech limit ran out: use the browser's voice for the rest of the visit.
+  let browserVoiceOnly = false
+  // Whether the part playing now is the browser's voice (pause and resume work differently).
+  let onBrowserVoice = false
+  let keepAlive: ReturnType<typeof setInterval> | null = null
 
   onMounted(() => {
     ready.value =
       !!navigator.mediaDevices?.getUserMedia && typeof AudioContext !== 'undefined' && typeof Audio !== 'undefined'
+    // Chrome loads its voices after the page; asking once starts that, for the fallback.
+    if ('speechSynthesis' in window) speechSynthesis.getVoices()
   })
   onBeforeUnmount(() => {
     stopSpeaking()
@@ -289,6 +297,7 @@ export function useStudioVoice(onAsk: (text: string) => void, enabled: () => boo
   }
 
   async function fetchAudio(text: string, run: number): Promise<string | null> {
+    if (browserVoiceOnly) return null
     try {
       const res = await adminFetch<{ audio: string; mimeType: string }>('/api/studio/voice/speak', {
         method: 'POST',
@@ -296,26 +305,57 @@ export function useStudioVoice(onAsk: (text: string) => void, enabled: () => boo
       })
       return run === generation ? `data:${res.mimeType};base64,${res.audio}` : null
     } catch (err: any) {
-      if (run === generation) error.value = err?.data?.statusMessage || "The voice didn't work just now."
+      if (err?.statusCode === 429) browserVoiceOnly = true
       return null
     }
   }
 
+  // Voices that sound less robotic, best first.
+  function browserVoice(): SpeechSynthesisVoice | null {
+    const voices = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith('en'))
+    for (const pattern of [/natural/i, /google/i, /samantha/i, /karen|moira|serena/i]) {
+      const voice = voices.find((v) => pattern.test(v.name))
+      if (voice) return voice
+    }
+    return voices[0] ?? null
+  }
+
+  // The fallback: the browser reads the part, a paragraph per utterance.
+  function speakWithBrowser(text: string, run: number) {
+    if (!('speechSynthesis' in window)) return playNext(run)
+    const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+    const voice = browserVoice()
+    onBrowserVoice = true
+    paragraphs.forEach((paragraph, i) => {
+      const utterance = new SpeechSynthesisUtterance(paragraph)
+      utterance.lang = 'en-US'
+      utterance.voice = voice
+      utterance.rate = 0.95
+      if (i === paragraphs.length - 1) utterance.onend = () => run === generation && playNext(run)
+      utterance.onerror = () => run === generation && playNext(run)
+      speechSynthesis.speak(utterance)
+    })
+    if (paused.value) speechSynthesis.pause()
+    // Chrome stops long speech after ~15s unless nudged; resume() does nothing when not paused.
+    keepAlive ??= setInterval(() => {
+      if (speechSynthesis.speaking && !speechSynthesis.paused) speechSynthesis.resume()
+    }, 10000)
+  }
+
   async function playNext(run: number) {
     if (run !== generation || !audio) return
-    const current = nextAudio
-    queue.shift()
-    if (!current) return finishSpeaking(run)
-    nextAudio = queue.length ? fetchAudio(queue[0]!, run) : null
-    const src = await current
+    onBrowserVoice = false
+    const part = queue.shift()
+    if (!part) return finishSpeaking(run)
+    const src = await part.audio
     if (run !== generation) return
-    if (!src) return finishSpeaking(run)
+    if (!src) return speakWithBrowser(part.text, run)
     audio.src = src
     audio.onended = () => playNext(run)
     try {
       if (!paused.value) await audio.play()
     } catch {
-      finishSpeaking(run)
+      speakWithBrowser(part.text, run)
     }
   }
 
@@ -324,53 +364,63 @@ export function useStudioVoice(onAsk: (text: string) => void, enabled: () => boo
     speaking.value = false
     paused.value = false
     held = false
+    stopKeepAlive()
   }
 
-  /** Reads `parts` aloud in order (a reply, then a story paragraph by paragraph). */
+  function stopKeepAlive() {
+    if (keepAlive) clearInterval(keepAlive)
+    keepAlive = null
+  }
+
+  /** Reads `parts` aloud in order (a reply, then a story). */
   async function say(parts: string[]) {
     const clean = parts.map((p) => p.trim()).filter(Boolean)
     if (!clean.length || !audio) return
     stopSpeaking()
     const run = generation
     spokenPairs = new Set(pairsOf(wordsOf(clean.join(' '))))
-    queue = clean
-    nextAudio = fetchAudio(queue[0]!, run)
+    queue = clean.map((text) => ({ text, audio: fetchAudio(text, run) }))
     speaking.value = true
     // Keep the mic open while it talks, so the owner can interrupt (if they've used it).
     if (stream) await context?.resume()
     playNext(run)
   }
 
+  function pausePlayback() {
+    if (onBrowserVoice) speechSynthesis.pause()
+    else audio?.pause()
+    paused.value = true
+  }
+
   function hold() {
     if (!speaking.value || paused.value) return
-    audio?.pause()
-    paused.value = true
+    pausePlayback()
     held = true
   }
 
   function resume() {
     if (!speaking.value) return
     paused.value = false
-    audio?.play().catch(() => {})
+    if (onBrowserVoice) speechSynthesis.resume()
+    else audio?.play().catch(() => {})
   }
 
   function togglePause() {
     if (!speaking.value) return
     if (paused.value) resume()
-    else {
-      audio?.pause()
-      paused.value = true
-    }
+    else pausePlayback()
   }
 
   function stopSpeaking() {
     generation++
     queue = []
-    nextAudio = null
     if (audio) {
       audio.onended = null
       audio.pause()
     }
+    if (import.meta.client && 'speechSynthesis' in window) speechSynthesis.cancel()
+    onBrowserVoice = false
+    stopKeepAlive()
     speaking.value = false
     paused.value = false
     held = false

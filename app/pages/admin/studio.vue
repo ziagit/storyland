@@ -109,6 +109,21 @@ function spoken(text: string): string {
   return text.replace(/[*_#`]/g, '').replace(/\p{Extended_Pictographic}/gu, '')
 }
 
+// A story read aloud as one or two long parts rather than a part per paragraph: each
+// part is one request to Gemini, whose free tier allows only a few a day.
+const MAX_SPEECH_PART = 3800
+function storyForSpeech(draft: StoryDraft): string[] {
+  const parts: string[] = []
+  let current = `${draft.title}.`
+  for (const paragraph of draft.body) {
+    if (current.length + paragraph.length + 2 > MAX_SPEECH_PART) {
+      parts.push(current)
+      current = paragraph
+    } else current = `${current}\n\n${paragraph}`
+  }
+  return [...parts, current]
+}
+
 function reply(text: string, draft?: StoryDraft) {
   entries.value.push({ role: 'assistant', text, draft })
   scrollChatToBottom()
@@ -160,7 +175,7 @@ async function ask(promptText: string) {
       // Reading is the voice agent's job: asked for in the chat, it moves to the Voice tab.
       tab.value = 'voice'
       reading.value = true
-      voice.say([spoken(res.reply), currentDraft.value.title, ...currentDraft.value.body])
+      voice.say([spoken(res.reply), ...storyForSpeech(currentDraft.value)])
     } else if (res.action === 'publish') {
       // publish() says how it went.
       await publish()
