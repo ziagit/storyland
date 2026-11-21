@@ -16,6 +16,14 @@ const password = ref('')
 const signingIn = ref(false)
 const error = ref(route.query.denied ? "This account doesn't have studio access." : '')
 const resetSent = ref(false)
+// Signing in here and being turned away by the admin check lands back on this same
+// page, which Vue reuses, so the message has to follow the query, not just the first load.
+watch(
+  () => route.query.denied,
+  (denied) => {
+    if (denied) error.value = "This account doesn't have studio access."
+  }
+)
 
 async function onSubmit() {
   if (!email.value.trim() || !password.value || signingIn.value) return
