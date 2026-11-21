@@ -57,35 +57,29 @@ const currentDraft = ref<StoryDraft | null>(null)
 // interrupted ("stop", "pause", "continue", or a new request).
 const tab = ref<'chat' | 'voice'>('chat')
 const voiceOn = computed(() => tab.value === 'voice')
-const voice = useVoiceConversation((text) => ask(text), () => voiceOn.value)
-const speech = voice.speech
-const voiceReady = computed(() => speech.canListen.value && speech.canSpeak.value)
+// Google's voice and speech recognition; it stops and closes the mic when the tab changes.
+const voice = useStudioVoice((text) => ask(text), () => voiceOn.value)
+const voiceReady = voice.ready
 // Whether the draft itself is being read aloud.
 const reading = ref(false)
-watch(speech.speaking, (speaking) => {
+watch(voice.speaking, (speaking) => {
   if (!speaking) reading.value = false
-})
-watch(tab, (now) => {
-  if (now === 'chat') {
-    speech.cancelListening()
-    speech.stopSpeaking()
-  }
 })
 
 const orbState = computed<OrbState>(() => {
-  if (speech.listening.value || voice.heard.value) return 'listening'
-  if (generating.value || publishing.value) return 'thinking'
-  if (speech.speaking.value) return speech.paused.value ? 'paused' : 'speaking'
+  if (voice.listening.value) return 'listening'
+  if (voice.transcribing.value || generating.value || publishing.value) return 'thinking'
+  if (voice.speaking.value) return voice.paused.value ? 'paused' : 'speaking'
   return 'idle'
 })
 
 const voiceStatus = computed(() => {
-  if (speech.listening.value || voice.heard.value) return 'Listening…'
+  if (voice.listening.value) return 'Listening…'
   if (publishing.value) return 'Publishing…'
-  if (generating.value) return 'Thinking…'
-  if (speech.speaking.value && speech.paused.value) return 'Paused'
+  if (voice.transcribing.value || generating.value) return 'Thinking…'
+  if (voice.speaking.value && voice.paused.value) return 'Paused'
   if (reading.value) return 'Reading'
-  if (speech.speaking.value) return 'Speaking'
+  if (voice.speaking.value) return 'Speaking'
   return 'Tap to talk'
 })
 
@@ -185,10 +179,9 @@ function onSend() {
 // The orb and the mic button: tap to talk, tap again when done. Tapping while the
 // agent speaks cuts it off and listens.
 function talk() {
-  if (speech.listening.value) return speech.stopListening()
   if (generating.value || publishing.value) return
   error.value = ''
-  voice.listen()
+  voice.talk()
 }
 
 async function publish() {
@@ -212,7 +205,7 @@ async function publish() {
 }
 
 function startNewStory() {
-  speech.stopSpeaking()
+  voice.stopSpeaking()
   entries.value = []
   apiHistory.value = []
   storyHistory.value = []
@@ -390,15 +383,15 @@ function startNewStory() {
               <button
                 type="button"
                 class="rounded-full outline-none transition-transform focus-visible:ring-4 focus-visible:ring-coral/30 active:scale-95"
-                :aria-label="speech.listening.value ? 'Done talking' : 'Talk to the assistant'"
+                :aria-label="voice.listening.value ? 'Done talking' : 'Talk to the assistant'"
                 @click="talk"
               >
-                <VoiceOrb :state="orbState" />
+                <VoiceOrb :state="orbState" :level="voice.level.value" />
               </button>
 
               <p class="font-heading text-lg font-bold text-navy" aria-live="polite">{{ voiceStatus }}</p>
 
-              <p v-if="speech.error.value || error" class="text-sm font-semibold text-coral">{{ speech.error.value || error }}</p>
+              <p v-if="voice.error.value || error" class="text-sm font-semibold text-coral">{{ voice.error.value || error }}</p>
             </div>
 
             <!-- Controls -->
@@ -406,30 +399,30 @@ function startNewStory() {
               <button
                 type="button"
                 class="flex h-11 w-11 items-center justify-center rounded-full bg-tan/50 text-navy transition-colors hover:bg-tan disabled:opacity-30"
-                :disabled="!speech.speaking.value"
-                :aria-label="speech.paused.value ? 'Resume' : 'Pause'"
-                @click="speech.togglePause"
+                :disabled="!voice.speaking.value"
+                :aria-label="voice.paused.value ? 'Resume' : 'Pause'"
+                @click="voice.togglePause"
               >
-                <Play v-if="speech.paused.value" class="h-5 w-5" />
+                <Play v-if="voice.paused.value" class="h-5 w-5" />
                 <Pause v-else class="h-5 w-5" />
               </button>
               <button
                 type="button"
                 class="flex h-16 w-16 items-center justify-center rounded-full text-white shadow-warm transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
-                :class="speech.listening.value ? 'bg-navy' : 'bg-coral'"
+                :class="voice.listening.value ? 'bg-navy' : 'bg-coral'"
                 :disabled="generating || publishing"
-                :aria-label="speech.listening.value ? 'Done talking' : 'Talk'"
+                :aria-label="voice.listening.value ? 'Done talking' : 'Talk'"
                 @click="talk"
               >
-                <Square v-if="speech.listening.value" class="h-6 w-6" />
+                <Square v-if="voice.listening.value" class="h-6 w-6" />
                 <Mic v-else class="h-7 w-7" />
               </button>
               <button
                 type="button"
                 class="flex h-11 w-11 items-center justify-center rounded-full bg-tan/50 text-navy transition-colors hover:bg-tan disabled:opacity-30"
-                :disabled="!speech.speaking.value"
+                :disabled="!voice.speaking.value"
                 aria-label="Stop"
-                @click="speech.stopSpeaking"
+                @click="voice.stopSpeaking"
               >
                 <Square class="h-5 w-5" />
               </button>

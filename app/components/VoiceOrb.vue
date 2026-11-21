@@ -3,7 +3,9 @@
 // owner can tell at a glance what the agent is doing.
 export type OrbState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'paused'
 
-defineProps<{ state: OrbState }>()
+// `level` is the mic's loudness (0 to 1): while listening, the orb swells with your voice.
+const props = withDefaults(defineProps<{ state: OrbState; level?: number }>(), { level: 0 })
+const swell = computed(() => (props.state === 'listening' ? 1 + Math.min(1, props.level) * 0.18 : 1))
 </script>
 
 <template>
@@ -11,7 +13,7 @@ defineProps<{ state: OrbState }>()
     <span class="orb__ring orb__ring--1" />
     <span class="orb__ring orb__ring--2" />
     <span class="orb__ring orb__ring--3" />
-    <span class="orb__core">
+    <span class="orb__core" :style="{ scale: swell }">
       <span class="orb__swirl" />
       <span class="orb__shine" />
       <span class="orb__bars">
@@ -42,6 +44,7 @@ defineProps<{ state: OrbState }>()
 
 .orb__core {
   position: relative;
+  transition: scale 0.12s ease-out, filter 0.4s ease;
   width: 62%;
   height: 62%;
   border-radius: 9999px;
@@ -49,7 +52,6 @@ defineProps<{ state: OrbState }>()
   background: radial-gradient(circle at 35% 30%, var(--orb-b), var(--orb-a) 55%, var(--orb-c));
   box-shadow: 0 20px 45px -15px rgba(227, 102, 86, 0.55);
   animation: breathe 4s ease-in-out infinite;
-  transition: filter 0.4s ease;
 }
 
 .orb__swirl {
