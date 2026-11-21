@@ -1,5 +1,5 @@
-// The Studio voice agent's ears and voice. Speech is Google's (Text-to-Speech through
-// /api/studio/voice/speak), and so is understanding (Speech-to-Text through
+// The Studio voice agent's ears and voice. Gemini speaks (through
+// /api/studio/voice/speak) and turns what the owner says into text (through
 // /api/studio/voice/transcribe).
 //
 // The mic is opened with the browser's echo cancellation, which takes the agent's
@@ -82,7 +82,7 @@ export function useStudioVoice(onAsk: (text: string) => void, enabled: () => boo
   const ready = ref(false)
   // Recording a request after a tap (or while the owner talks over a reply).
   const listening = ref(false)
-  // Waiting for Google to turn the recording into text.
+  // Waiting for Gemini to turn the recording into text.
   const transcribing = ref(false)
   const speaking = ref(false)
   const paused = ref(false)

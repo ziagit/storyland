@@ -20,10 +20,12 @@ export default defineNuxtConfig({
     // instead of straight to Supabase. The key guards its write endpoints.
     kidstoryApiUrl: process.env.KIDSTORY_API_URL || 'http://localhost:8000',
     kidstoryApiKey: process.env.KIDSTORY_API_KEY,
-    // Google Cloud Text-to-Speech and Speech-to-Text for the Studio voice agent's
-    // realistic voice. GOOGLE_TTS_VOICE optionally picks the voice.
-    googleCloudApiKey: process.env.GOOGLE_CLOUD_API_KEY,
-    googleTtsVoice: process.env.GOOGLE_TTS_VOICE,
+    // Gemini (a Google AI Studio key) speaks and listens for the Studio voice agent.
+    // The others optionally pick the voice and the models.
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiTtsVoice: process.env.GEMINI_TTS_VOICE,
+    geminiTtsModel: process.env.GEMINI_TTS_MODEL,
+    geminiSttModel: process.env.GEMINI_STT_MODEL,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY
