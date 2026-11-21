@@ -232,6 +232,8 @@ export interface SupportAgentResult {
   handoff: SupportHandoff | null
   steps: AgentStep[]
   history: ChatMessage[]
+  // The slug of a story the reader asked to hear; the chat reads it aloud after the reply.
+  readAloud?: string | null
 }
 
 export interface Category {

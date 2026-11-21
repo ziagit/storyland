@@ -55,6 +55,9 @@ export function useSpeech() {
 
   let recognition: Recognition | null = null
   let lang = 'en-US'
+  // Bumped on every new speech or stop, so a cancelled queue's late events are ignored.
+  let generation = 0
+  let keepAlive: ReturnType<typeof setInterval> | null = null
 
   onMounted(() => {
     canListen.value = !!recognitionConstructor()
@@ -66,7 +69,7 @@ export function useSpeech() {
 
   onBeforeUnmount(() => {
     recognition?.abort()
-    if (canSpeak.value) speechSynthesis.cancel()
+    stopSpeaking()
   })
 
   /** Listens until the reader pauses (or `stopListening` is called), then hands what they said to `onDone`. */
@@ -114,22 +117,38 @@ export function useSpeech() {
     recognition?.abort()
   }
 
-  function speak(text: string) {
-    if (!canSpeak.value || !text.trim()) return
-    speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = lang
-    utterance.voice = pickVoice(lang)
-    utterance.rate = 0.95
-    utterance.onstart = () => {
-      speaking.value = true
-      paused.value = false
-    }
-    utterance.onend = utterance.onerror = () => {
+  function stopKeepAlive() {
+    if (keepAlive) clearInterval(keepAlive)
+    keepAlive = null
+  }
+
+  /** Reads `text` aloud; an array is read in order, one utterance per part (a whole story, paragraph by paragraph). */
+  function speak(text: string | string[]) {
+    const parts = (Array.isArray(text) ? text : [text]).map((t) => t.trim()).filter(Boolean)
+    if (!canSpeak.value || !parts.length) return
+    stopSpeaking()
+    const run = generation
+    const finish = () => {
+      if (run !== generation) return
       speaking.value = false
       paused.value = false
+      stopKeepAlive()
     }
-    speechSynthesis.speak(utterance)
+    const voice = pickVoice(lang)
+    parts.forEach((part, i) => {
+      const utterance = new SpeechSynthesisUtterance(part)
+      utterance.lang = lang
+      utterance.voice = voice
+      utterance.rate = 0.95
+      if (i === parts.length - 1) utterance.onend = finish
+      utterance.onerror = finish
+      speechSynthesis.speak(utterance)
+    })
+    speaking.value = true
+    // Chrome stops long speech after ~15s unless nudged; resume() does nothing when not paused.
+    keepAlive = setInterval(() => {
+      if (speechSynthesis.speaking && !speechSynthesis.paused) speechSynthesis.resume()
+    }, 10000)
   }
 
   function togglePause() {
@@ -141,6 +160,8 @@ export function useSpeech() {
 
   function stopSpeaking() {
     if (!canSpeak.value) return
+    generation++
+    stopKeepAlive()
     speechSynthesis.cancel()
     speaking.value = false
     paused.value = false

@@ -90,5 +90,5 @@ export default defineEventHandler(async (event) => {
       ? `${result.reply}\n\n(Our message to the team didn't go through, so please also write to us at /contact.)`
       : result.reply
   const history = result.handoff && !handedOff ? [...result.history.slice(0, -1), { role: 'assistant' as const, content: reply }] : result.history
-  return { reply, handedOff, history }
+  return { reply, handedOff, history, readAloud: result.readAloud ?? null }
 })

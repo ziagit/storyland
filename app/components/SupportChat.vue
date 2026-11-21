@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Keyboard, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Square, Volume2, VolumeX, X } from '@lucide/vue'
-import type { StorySummary } from '../../shared/utils/kidstory-api'
+import { BookOpen, Keyboard, MessageCircle, Mic, Pause, Play, RotateCcw, Send, Square, Volume2, VolumeX, X } from '@lucide/vue'
+import type { Story } from '../../shared/utils/kidstory-api'
 import type { ChatMessage } from '../../shared/utils/story-authoring'
 
 const GREETING = "Hi! I'm Kidstory's helper. Ask me about stories for your child or signing in."
@@ -19,11 +19,15 @@ const showHint = ref(false)
 const draft = ref('')
 const sending = ref(false)
 const error = ref('')
+// A spoken question that didn't get an answer, kept on screen so it can be retried.
+const failed = ref('')
+// The story being read aloud, if the reader asked the helper to read one.
+const reading = ref<Story | null>(null)
 // The conversation as the API returned it, sent back with each message. It lives
 // in this component (mounted once in app.vue), so it survives page navigation.
 const history = ref<ChatMessage[]>([])
-// Stories the helper recommended, by slug, shown as cards under its replies.
-const stories = ref<Record<string, StorySummary>>({})
+// Stories the helper recommended or read, by slug; recommended ones show as cards under its replies.
+const stories = ref<Record<string, Story>>({})
 const scroller = ref<HTMLElement | null>(null)
 const input = ref<HTMLTextAreaElement | null>(null)
 
@@ -71,16 +75,20 @@ function spoken(text: string): string {
     .replace(/\p{Extended_Pictographic}/gu, '')
 }
 
-async function loadStories(text: string) {
-  for (const slug of storySlugs(text)) {
-    if (stories.value[slug]) continue
-    try {
-      const story = await $fetch<StorySummary>(`/api/stories/${slug}`)
-      stories.value = { ...stories.value, [slug]: story }
-    } catch {
-      // No card; the reply still links to the story.
-    }
+async function loadStory(slug: string): Promise<Story | null> {
+  if (stories.value[slug]) return stories.value[slug]
+  try {
+    const story = await $fetch<Story>(`/api/stories/${slug}`)
+    stories.value = { ...stories.value, [slug]: story }
+    return story
+  } catch {
+    // No card; the reply still links to the story.
+    return null
   }
+}
+
+async function loadStories(text: string) {
+  for (const slug of storySlugs(text)) await loadStory(slug)
 }
 
 // A failed message, or the microphone not working.
@@ -91,8 +99,14 @@ const lastReply = computed(() => [...history.value].reverse().find((m) => m.role
 const status = computed(() => {
   if (speech.listening.value) return 'Listening…'
   if (sending.value) return 'Thinking…'
+  if (reading.value && speech.speaking.value) return speech.paused.value ? 'Paused' : 'Reading a story'
   if (speech.speaking.value) return speech.paused.value ? 'Paused' : 'Speaking'
   return mode.value === 'voice' ? 'Talk or type · a person follows up if needed' : 'Answers in seconds · a person follows up if needed'
+})
+
+// The story is done (or was stopped) once speech ends.
+watch(speech.speaking, (speaking) => {
+  if (!speaking) reading.value = null
 })
 
 onMounted(() => {
@@ -160,24 +174,33 @@ async function send(text = draft.value) {
   if (!message || sending.value) return
   const voice = mode.value === 'voice'
   error.value = ''
+  failed.value = ''
   sending.value = true
   const before = history.value
   history.value = [...before, { role: 'user', content: message }]
   if (!voice) draft.value = ''
   scrollToEnd()
   try {
-    const res = await $fetch<{ reply: string; history: ChatMessage[] }>('/api/support/chat', {
+    const res = await $fetch<{ reply: string; history: ChatMessage[]; readAloud?: string | null }>('/api/support/chat', {
       method: 'POST',
       body: { message, history: before, voice },
       headers: accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : undefined
     })
     history.value = res.history
-    // Only speak if the reader is still in voice mode with the chat open.
-    if (voice && mode.value === 'voice' && open.value && !muted.value) speech.speak(spoken(res.reply))
+    const story = res.readAloud ? await loadStory(res.readAloud) : null
+    if (story && open.value && !muted.value) {
+      // The reader asked to hear it, so it's read in text mode too: the reply, then the story.
+      reading.value = story
+      speech.speak([spoken(res.reply), ...story.body])
+    } else if (voice && mode.value === 'voice' && open.value && !muted.value) {
+      // Only speak if the reader is still in voice mode with the chat open.
+      speech.speak(spoken(res.reply))
+    }
     await loadStories(res.reply)
   } catch (err: any) {
     history.value = before
-    if (!voice) draft.value = message
+    if (voice) failed.value = message
+    else draft.value = message
     error.value = err?.data?.statusMessage || err?.statusMessage || 'Something went wrong. Please try again.'
   } finally {
     sending.value = false
@@ -258,7 +281,7 @@ function onKeydown(e: KeyboardEvent) {
 
         <!-- Voice: ready to listen, before the first question -->
         <div
-          v-else-if="mode === 'voice' && history.length === 0 && !sending"
+          v-else-if="mode === 'voice' && history.length === 0 && !sending && !failed"
           class="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center"
         >
           <p class="font-heading text-xl text-navy">Hi! What can I help with?</p>
@@ -324,6 +347,16 @@ function onKeydown(e: KeyboardEvent) {
                 </template>
               </template>
             </template>
+            <div v-if="failed" class="ml-auto flex max-w-[85%] flex-col items-end gap-1.5">
+              <p class="rounded-2xl rounded-br-md bg-green/60 px-4 py-2.5 text-sm text-white shadow-sm">{{ failed }}</p>
+              <button
+                type="button"
+                class="flex items-center gap-1 text-xs font-bold text-coral transition-colors hover:text-navy"
+                @click="send(failed)"
+              >
+                <RotateCcw class="h-3.5 w-3.5" /> Not sent. Try again
+              </button>
+            </div>
             <p v-if="sending" class="flex w-fit gap-1 rounded-2xl rounded-bl-md bg-white px-4 py-3 shadow-sm" aria-label="Helper is typing">
               <span class="h-2 w-2 animate-bounce rounded-full bg-ink-muted/60" />
               <span class="h-2 w-2 animate-bounce rounded-full bg-ink-muted/60 [animation-delay:150ms]" />
@@ -333,6 +366,40 @@ function onKeydown(e: KeyboardEvent) {
 
           <p v-if="problem" class="px-4 pb-2 text-sm text-coral">{{ problem }}</p>
         </template>
+
+        <!-- A story being read aloud -->
+        <div
+          v-if="reading && !speech.listening.value"
+          class="flex items-center gap-3 border-t border-tan bg-cream px-4 py-2.5"
+        >
+          <img v-if="reading.coverImageUrl" :src="reading.coverImageUrl" alt="" class="h-10 w-10 shrink-0 rounded-lg object-cover" />
+          <span v-else class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-tan text-lg">{{ reading.emoji }}</span>
+          <div class="min-w-0 flex-1">
+            <p class="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-green">
+              <BookOpen class="h-3 w-3" /> {{ speech.paused.value ? 'Paused' : 'Reading aloud' }}
+            </p>
+            <NuxtLink :to="`/stories/${reading.slug}`" class="block truncate font-heading text-sm font-bold text-navy hover:text-coral">
+              {{ reading.title }}
+            </NuxtLink>
+          </div>
+          <button
+            type="button"
+            class="rounded-full p-2 text-navy transition-colors hover:bg-white"
+            :aria-label="speech.paused.value ? 'Resume the story' : 'Pause the story'"
+            @click="speech.togglePause"
+          >
+            <Play v-if="speech.paused.value" class="h-4 w-4" />
+            <Pause v-else class="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            class="rounded-full p-2 text-navy transition-colors hover:bg-white"
+            aria-label="Stop reading"
+            @click="speech.stopSpeaking"
+          >
+            <Square class="h-4 w-4" />
+          </button>
+        </div>
 
         <!-- Voice controls -->
         <div
@@ -353,7 +420,7 @@ function onKeydown(e: KeyboardEvent) {
               <span class="w-1 animate-sound-bar rounded-full bg-green [animation-delay:300ms]" />
             </div>
             <button
-              v-if="speech.speaking.value"
+              v-if="speech.speaking.value && !reading"
               type="button"
               class="rounded-full p-2 text-navy transition-colors hover:bg-cream"
               :aria-label="speech.paused.value ? 'Resume' : 'Pause'"
@@ -363,7 +430,7 @@ function onKeydown(e: KeyboardEvent) {
               <Pause v-else class="h-4 w-4" />
             </button>
             <button
-              v-else
+              v-else-if="!speech.speaking.value"
               type="button"
               class="rounded-full p-2 text-navy transition-colors hover:bg-cream disabled:opacity-40"
               aria-label="Say that again"
