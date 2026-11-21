@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Sparkles, Send, Loader2, Wand2, CircleCheck, CircleAlert, MessageCircle } from '@lucide/vue'
+import { Sparkles, Send, Loader2, Wand2, CircleCheck, CircleAlert, MessageCircle, Mic, Square, Pause, Play, BookOpen, Volume2, VolumeX } from '@lucide/vue'
 import { categories } from '~/data/categories'
 
 definePageMeta({ layout: 'admin' })
@@ -47,7 +47,21 @@ const ageRange = ref('')
 
 const entries = ref<ChatEntry[]>([])
 const apiHistory = ref<ChatMessage[]>([])
+// The story agent's own history for the current draft, so revisions keep their context.
+const storyHistory = ref<ChatMessage[]>([])
 const currentDraft = ref<StoryDraft | null>(null)
+
+// Voice: once the mic is used, replies are read aloud and can be interrupted ("stop",
+// "pause", "continue", or a new request). The speaker button turns it off again.
+const voiceOn = ref(false)
+const voice = useVoiceConversation((text) => ask(text), () => voiceOn.value)
+const speech = voice.speech
+const voiceReady = computed(() => speech.canListen.value && speech.canSpeak.value)
+// Whether the draft itself is being read aloud (for the bar with pause and stop).
+const reading = ref(false)
+watch(speech.speaking, (speaking) => {
+  if (!speaking) reading.value = false
+})
 
 const generating = ref(false)
 const publishing = ref(false)
@@ -64,36 +78,70 @@ function scrollChatToBottom() {
 const categoryLabel = (slug: string) => categories.find((c) => c.slug === slug)?.label ?? slug
 const ageLabel = (value: string) => ageOptions.find((a) => a.value === value)?.label ?? value
 
-async function generate(promptText: string) {
+// Replies as they're read aloud: no markdown or emoji.
+function spoken(text: string): string {
+  return text.replace(/[*_#`]/g, '').replace(/\p{Extended_Pictographic}/gu, '')
+}
+
+function reply(text: string, draft?: StoryDraft) {
+  entries.value.push({ role: 'assistant', text, draft })
+  scrollChatToBottom()
+  if (voiceOn.value) voice.say([spoken(text)])
+}
+
+async function ask(promptText: string) {
   if (!promptText.trim() || generating.value) return
-  const isFirst = entries.value.length === 0
   error.value = ''
-  publishedSlug.value = ''
   entries.value.push({ role: 'user', text: promptText })
   generating.value = true
   scrollChatToBottom()
 
   try {
-    // The story agent writes the first draft and revises it on follow-ups. The
-    // category/age selects only apply until there's a draft (they're hidden after),
-    // so a follow-up like "make it a bedtime story" is free to change them.
-    const revising = currentDraft.value !== null
-    const res = await adminFetch<{ draft: StoryDraft; notes: string; history: ChatMessage[] }>('/api/studio/generate', {
+    // The assistant talks ideas through, has the story agent write the first draft and
+    // revise it on follow-ups, and asks for the draft to be read aloud or published.
+    // The category/age selects only apply until there's a draft (they're hidden after).
+    const hasDraft = currentDraft.value !== null
+    const res = await adminFetch<{
+      reply: string
+      draft: StoryDraft | null
+      action: 'read' | 'publish' | null
+      history: ChatMessage[]
+      storyHistory: ChatMessage[]
+    }>('/api/studio/assistant', {
       method: 'POST',
       body: {
-        topic: promptText,
-        category: (!revising && category.value) || undefined,
-        ageRange: (!revising && ageRange.value) || undefined,
-        draft: currentDraft.value ?? undefined,
-        history: apiHistory.value
+        message: promptText,
+        history: apiHistory.value,
+        draft: currentDraft.value,
+        storyHistory: storyHistory.value,
+        category: (!hasDraft && category.value) || undefined,
+        ageRange: (!hasDraft && ageRange.value) || undefined,
+        voice: voiceOn.value
       }
     })
-    currentDraft.value = res.draft
     apiHistory.value = res.history
-    const fallback = isFirst ? "Here's your first draft — check it out on the left!" : 'Updated — take a look on the left!'
-    entries.value.push({ role: 'assistant', text: res.notes || fallback, draft: res.draft })
+    storyHistory.value = res.storyHistory
+    const changed = res.draft && JSON.stringify(res.draft) !== JSON.stringify(currentDraft.value)
+    if (changed) {
+      currentDraft.value = res.draft
+      publishedSlug.value = ''
+    }
+    entries.value.push({ role: 'assistant', text: res.reply, draft: changed ? res.draft! : undefined })
+    scrollChatToBottom()
+
+    if (res.action === 'read' && currentDraft.value) {
+      // Asked for, so it's read aloud even with voice off.
+      reading.value = true
+      voice.say([spoken(res.reply), currentDraft.value.title, ...currentDraft.value.body])
+    } else if (res.action === 'publish') {
+      // publish() says how it went.
+      await publish()
+    } else if (voiceOn.value) {
+      voice.say([spoken(res.reply)])
+    }
   } catch (err: any) {
     error.value = err?.data?.statusMessage || err?.message || 'Something went wrong talking to the AI.'
+    if (voiceOn.value) voice.say(["Sorry, that didn't work. Please try again."])
   } finally {
     generating.value = false
     scrollChatToBottom()
@@ -103,29 +151,45 @@ async function generate(promptText: string) {
 function onSend() {
   const t = message.value
   message.value = ''
-  generate(t)
+  ask(t)
+}
+
+function talk() {
+  voiceOn.value = true
+  error.value = ''
+  voice.listen()
+}
+
+function toggleVoice() {
+  voiceOn.value = !voiceOn.value
+  if (!voiceOn.value) speech.stopSpeaking()
 }
 
 async function publish() {
   if (!currentDraft.value || publishing.value) return
   publishing.value = true
   error.value = ''
+  const title = currentDraft.value.title
   try {
     const res = await adminFetch<{ slug: string }>('/api/studio/publish', {
       method: 'POST',
       body: currentDraft.value
     })
     publishedSlug.value = res.slug
+    reply(`Published! ${title} is live on the site.`)
   } catch (err: any) {
     error.value = err?.data?.statusMessage || err?.message || 'Publishing failed.'
+    reply(`Publishing ${title} didn't work: ${error.value}`)
   } finally {
     publishing.value = false
   }
 }
 
 function startNewStory() {
+  speech.stopSpeaking()
   entries.value = []
   apiHistory.value = []
+  storyHistory.value = []
   currentDraft.value = null
   publishedSlug.value = ''
   error.value = ''
@@ -205,12 +269,25 @@ function startNewStory() {
         <div class="flex h-full min-h-0 w-full flex-col rounded-3xl bg-white shadow-warm">
           <div class="flex shrink-0 items-center gap-2 border-b border-tan/60 px-5 py-4">
             <MessageCircle class="h-5 w-5 text-green" />
-            <p class="font-heading font-bold text-navy">Chat with the AI</p>
+            <p class="font-heading font-bold text-navy">Studio assistant</p>
+            <button
+              v-if="voiceReady"
+              type="button"
+              class="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-colors"
+              :class="voiceOn ? 'bg-green/15 text-green hover:bg-green/25' : 'bg-tan/50 text-ink-muted hover:text-navy'"
+              :aria-pressed="voiceOn"
+              @click="toggleVoice"
+            >
+              <Volume2 v-if="voiceOn" class="h-3.5 w-3.5" />
+              <VolumeX v-else class="h-3.5 w-3.5" />
+              {{ voiceOn ? 'Voice on' : 'Voice off' }}
+            </button>
           </div>
 
           <div ref="chatLog" class="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
             <p v-if="!entries.length" class="text-sm text-ink-muted">
-              Give it a topic to start, e.g. "a shy hedgehog who learns to make friends at a new pond".
+              Talk or type. Ask for story ideas, describe a story to write ("a shy hedgehog who learns to make
+              friends at a new pond"), ask for changes, have it read to you, then say "publish it".
             </p>
 
             <div v-for="(entry, i) in entries" :key="i">
@@ -227,11 +304,67 @@ function startNewStory() {
             </div>
 
             <div v-if="generating" class="flex max-w-[90%] items-center gap-2 rounded-2xl rounded-tl-md bg-tan/40 px-4 py-2.5 text-sm text-ink-muted">
-              <Loader2 class="h-3.5 w-3.5 animate-spin" /> The story agent is writing and checking…
+              <Loader2 class="h-3.5 w-3.5 animate-spin" /> Thinking… (writing a story takes about a minute)
             </div>
           </div>
 
-          <div class="shrink-0 space-y-2 border-t border-tan/60 p-3">
+          <!-- The draft being read aloud -->
+          <div v-if="reading && currentDraft" class="flex shrink-0 items-center gap-3 border-t border-tan/60 bg-cream px-4 py-2.5">
+            <span class="text-xl leading-none">{{ currentDraft.emoji }}</span>
+            <div class="min-w-0 flex-1">
+              <p class="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-green">
+                <BookOpen class="h-3 w-3" /> {{ speech.paused.value ? 'Paused' : 'Reading aloud' }}
+              </p>
+              <p class="truncate font-heading text-sm font-bold text-navy">{{ currentDraft.title }}</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-full p-2 text-navy transition-colors hover:bg-white"
+              :aria-label="speech.paused.value ? 'Resume reading' : 'Pause reading'"
+              @click="speech.togglePause"
+            >
+              <Play v-if="speech.paused.value" class="h-4 w-4" />
+              <Pause v-else class="h-4 w-4" />
+            </button>
+            <button type="button" class="rounded-full p-2 text-navy transition-colors hover:bg-white" aria-label="Stop reading" @click="speech.stopSpeaking">
+              <Square class="h-4 w-4" />
+            </button>
+          </div>
+
+          <!-- While a reply plays, the mic listens for "stop" or a new request -->
+          <p
+            v-if="voiceOn && voice.micUsed.value && speech.speaking.value && !speech.listening.value"
+            class="flex shrink-0 items-center justify-center gap-1.5 border-t border-tan/60 px-4 py-2 text-xs text-ink-muted"
+            aria-live="polite"
+          >
+            <Mic class="h-3.5 w-3.5 shrink-0" :class="voice.heard.value ? 'text-coral' : ''" />
+            <span v-if="voice.heard.value" class="truncate font-semibold text-navy">"{{ voice.heard.value }}"</span>
+            <span v-else>Say "stop", or ask something else</span>
+          </p>
+
+          <!-- Listening after a tap on the mic -->
+          <div v-if="speech.listening.value" class="flex shrink-0 flex-col items-center gap-3 border-t border-tan/60 px-4 py-4 text-center">
+            <div class="relative h-14 w-14">
+              <span class="absolute inset-0 animate-ping rounded-full bg-coral/30" />
+              <span class="relative flex h-14 w-14 items-center justify-center rounded-full bg-coral text-white">
+                <Mic class="h-6 w-6" />
+              </span>
+            </div>
+            <p class="min-h-[1.5rem] text-sm font-semibold text-navy" aria-live="polite">
+              <template v-if="speech.transcript.value">"{{ speech.transcript.value }}"</template>
+              <span v-else class="font-normal text-ink-muted">Listening… ask for ideas, a story, or a change</span>
+            </p>
+            <button
+              type="button"
+              class="flex items-center gap-2 rounded-full bg-navy px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-green"
+              @click="speech.stopListening"
+            >
+              <Square class="h-3 w-3" /> Done
+            </button>
+          </div>
+
+          <div v-else class="shrink-0 space-y-2 border-t border-tan/60 p-3">
+            <p v-if="speech.error.value" class="text-xs font-semibold text-coral">{{ speech.error.value }}</p>
             <div v-if="!entries.length" class="grid grid-cols-2 gap-2">
               <select
                 v-model="category"
@@ -251,9 +384,19 @@ function startNewStory() {
               <input
                 v-model="message"
                 type="text"
-                :placeholder="entries.length ? 'Ask for a change…' : 'Give it a topic…'"
-                class="flex-1 rounded-full border-2 border-tan bg-white px-4 py-2 text-sm outline-none transition-colors focus:border-coral"
+                :placeholder="entries.length ? 'Ask for a change…' : 'Ask for ideas or give it a topic…'"
+                class="min-w-0 flex-1 rounded-full border-2 border-tan bg-white px-4 py-2 text-sm outline-none transition-colors focus:border-coral"
               />
+              <button
+                v-if="voiceReady"
+                type="button"
+                :disabled="generating"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-coral text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Talk to the assistant"
+                @click="talk"
+              >
+                <Mic class="h-4 w-4" />
+              </button>
               <button
                 type="submit"
                 :disabled="generating || !message.trim()"

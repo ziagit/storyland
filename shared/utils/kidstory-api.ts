@@ -351,6 +351,37 @@ export function runStoryAgent(config: KidstoryApiConfig, input: StoryAgentInput 
   return request<StoryAgentResult>(config, '/agents/story', { method: 'POST', body: input, requireApiKey: true })
 }
 
+export interface StudioAgentInput {
+  // What the owner just said or typed in /admin/studio.
+  message: string
+  // Earlier turns of the conversation, as returned by the last call.
+  history?: ChatMessage[]
+  // The story as it stands, and the story agent's own history for it.
+  draft?: StoryDraft | null
+  storyHistory?: ChatMessage[]
+  // The owner's picks for a new story; the story agent chooses when left out.
+  category?: string
+  ageRange?: string
+  // The owner is talking by voice and hears the reply read aloud.
+  voice?: boolean
+}
+
+export interface StudioAgentResult {
+  reply: string
+  // The draft after this turn: new, revised, or unchanged.
+  draft: StoryDraft | null
+  // What the Studio does after the reply: read the draft aloud, or publish it.
+  action: 'read' | 'publish' | null
+  steps: AgentStep[]
+  history: ChatMessage[]
+  storyHistory: ChatMessage[]
+}
+
+/** Runs the Studio assistant (`POST /agents/studio`) on one message from the owner. Nothing is saved. */
+export function runStudioAssistant(config: KidstoryApiConfig, input: StudioAgentInput): Promise<StudioAgentResult> {
+  return request<StudioAgentResult>(config, '/agents/studio', { method: 'POST', body: input, requireApiKey: true })
+}
+
 /** Runs the social agent (`POST /agents/social`): it writes and publishes posts for a published story. */
 export function runSocialAgent(config: KidstoryApiConfig, input: SocialAgentInput): Promise<SocialAgentResult> {
   return request<SocialAgentResult>(config, '/agents/social', { method: 'POST', body: input, requireApiKey: true })
