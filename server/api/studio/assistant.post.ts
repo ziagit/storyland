@@ -1,8 +1,9 @@
 // The Studio assistant, by voice or text. Each message runs kidstory-api's Studio
 // assistant, which talks ideas through and has the story agent write or revise the
 // draft. It never publishes or deletes: its `action` tells the page to read the draft
-// aloud, publish it through /api/studio/publish (as the Publish button does), or delete
-// a published story through /api/admin/stories/[slug] (as the Stories page does).
+// aloud, publish it through /api/studio/publish (as the Publish button does), delete
+// a published story through /api/admin/stories/[slug] (as the Stories page does), or
+// send a story to the owner's WhatsApp through /api/studio/whatsapp.
 import { KidstoryApiError, runStudioAssistant } from '../../../shared/utils/kidstory-api'
 import { AGE_RANGES, CATEGORY_SLUGS, type ChatMessage, type StoryDraft } from '../../../shared/utils/story-authoring'
 

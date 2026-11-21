@@ -68,7 +68,8 @@ watch(voice.speaking, (speaking) => {
 
 const orbState = computed<OrbState>(() => {
   if (voice.listening.value) return 'listening'
-  if (voice.transcribing.value || generating.value || publishing.value || deleting.value) return 'thinking'
+  if (voice.transcribing.value || generating.value || publishing.value || deleting.value || sendingWhatsApp.value)
+    return 'thinking'
   if (voice.speaking.value) return voice.paused.value ? 'paused' : 'speaking'
   return 'idle'
 })
@@ -77,6 +78,7 @@ const voiceStatus = computed(() => {
   if (voice.listening.value) return 'Listening…'
   if (publishing.value) return 'Publishing…'
   if (deleting.value) return 'Deleting…'
+  if (sendingWhatsApp.value) return 'Sending…'
   if (voice.transcribing.value || generating.value) return 'Thinking…'
   if (voice.speaking.value && voice.paused.value) return 'Paused'
   if (reading.value) return 'Reading'
@@ -88,6 +90,7 @@ const voiceStatus = computed(() => {
 const generating = ref(false)
 const publishing = ref(false)
 const deleting = ref(false)
+const sendingWhatsApp = ref(false)
 const error = ref('')
 const publishedSlug = ref('')
 
@@ -127,7 +130,7 @@ async function ask(promptText: string) {
     const res = await adminFetch<{
       reply: string
       draft: StoryDraft | null
-      action: 'read' | 'publish' | 'delete' | null
+      action: 'read' | 'publish' | 'delete' | 'whatsapp' | null
       target: { slug: string; title: string } | null
       history: ChatMessage[]
       storyHistory: ChatMessage[]
@@ -163,6 +166,8 @@ async function ask(promptText: string) {
       await publish()
     } else if (res.action === 'delete' && res.target) {
       await deleteStory(res.target)
+    } else if (res.action === 'whatsapp') {
+      await sendToWhatsApp(res.target)
     } else if (voiceOn.value) {
       voice.say([spoken(res.reply)])
     }
@@ -184,7 +189,7 @@ function onSend() {
 // The orb and the mic button: tap to talk, tap again when done. Tapping while the
 // agent speaks cuts it off and listens.
 function talk() {
-  if (generating.value || publishing.value || deleting.value) return
+  if (generating.value || publishing.value || deleting.value || sendingWhatsApp.value) return
   error.value = ''
   voice.talk()
 }
@@ -222,6 +227,26 @@ async function deleteStory(target: { slug: string; title: string }) {
     reply(`Deleting ${target.title} didn't work: ${why}`)
   } finally {
     deleting.value = false
+  }
+}
+
+// A story the owner asked the assistant to send to their own WhatsApp: a published
+// one (`target`), or the current draft.
+async function sendToWhatsApp(target: { slug: string; title: string } | null) {
+  const title = target?.title ?? currentDraft.value?.title ?? 'The story'
+  sendingWhatsApp.value = true
+  try {
+    await adminFetch('/api/studio/whatsapp', {
+      method: 'POST',
+      body: target ? { slug: target.slug } : { draft: currentDraft.value }
+    })
+    reply(`Sent. ${title} is in your WhatsApp.`)
+  } catch (err: any) {
+    const why = err?.data?.statusMessage || err?.message || 'Sending failed.'
+    error.value = why
+    reply(`Sending ${title} to WhatsApp didn't work: ${why}`)
+  } finally {
+    sendingWhatsApp.value = false
   }
 }
 

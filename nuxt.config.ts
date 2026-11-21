@@ -26,6 +26,10 @@ export default defineNuxtConfig({
     geminiTtsVoice: process.env.GEMINI_TTS_VOICE,
     geminiTtsModel: process.env.GEMINI_TTS_MODEL,
     geminiSttModel: process.env.GEMINI_STT_MODEL,
+    // CallMeBot sends stories from the Studio to the owner's own WhatsApp: their number
+    // (with country code, e.g. +923001234567) and the API key CallMeBot gave them.
+    callmebotPhone: process.env.CALLMEBOT_PHONE,
+    callmebotApikey: process.env.CALLMEBOT_APIKEY,
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY

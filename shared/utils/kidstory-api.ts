@@ -370,9 +370,10 @@ export interface StudioAgentResult {
   reply: string
   // The draft after this turn: new, revised, or unchanged.
   draft: StoryDraft | null
-  // What the Studio does after the reply: read the draft aloud, publish it, or delete `target`.
-  action: 'read' | 'publish' | 'delete' | null
-  // The published story to delete, for action "delete".
+  // What the Studio does after the reply: read the draft aloud, publish it, delete `target`,
+  // or send `target` (or the draft, when `target` is empty) to the owner's WhatsApp.
+  action: 'read' | 'publish' | 'delete' | 'whatsapp' | null
+  // The published story to delete or send.
   target: { slug: string; title: string } | null
   steps: AgentStep[]
   history: ChatMessage[]
