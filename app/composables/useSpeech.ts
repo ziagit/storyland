@@ -10,7 +10,9 @@ type Recognition = {
   start(): void
   stop(): void
   abort(): void
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null
+  onresult:
+    | ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void)
+    | null
   onerror: ((e: { error: string }) => void) | null
   onend: (() => void) | null
 }
@@ -54,6 +56,9 @@ export function useSpeech() {
   const error = ref('')
 
   let recognition: Recognition | null = null
+  // Listening in the background while speech plays, so the reader can interrupt.
+  let background: Recognition | null = null
+  let onHeard: ((text: string, isFinal: boolean) => void) | null = null
   let lang = 'en-US'
   // Bumped on every new speech or stop, so a cancelled queue's late events are ignored.
   let generation = 0
@@ -69,6 +74,7 @@ export function useSpeech() {
 
   onBeforeUnmount(() => {
     recognition?.abort()
+    stopHearing()
     stopSpeaking()
   })
 
@@ -76,6 +82,7 @@ export function useSpeech() {
   function listen(onDone: (text: string) => void) {
     const Constructor = recognitionConstructor()
     if (!Constructor || listening.value) return
+    stopHearing()
     stopSpeaking()
     error.value = ''
     transcript.value = ''
@@ -115,6 +122,51 @@ export function useSpeech() {
   function cancelListening() {
     transcript.value = ''
     recognition?.abort()
+  }
+
+  /**
+   * Keeps the microphone on in the background and passes everything it hears to `handler`, as the
+   * reader speaks (`isFinal` false) and once they pause (true). Restarts itself, since the browser
+   * ends a listening session after a while, until `stopHearing` is called. The microphone also
+   * picks up the speech this page is playing, so the handler must tell the reader from the echo.
+   */
+  function hear(handler: (text: string, isFinal: boolean) => void) {
+    onHeard = handler
+    if (background || recognition) return
+    const Constructor = recognitionConstructor()
+    if (!Constructor) return
+    const r = new Constructor()
+    r.lang = lang
+    r.interimResults = true
+    r.continuous = true
+    r.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i]
+        if (result) onHeard?.(result[0]?.transcript ?? '', result.isFinal)
+      }
+    }
+    r.onerror = (e) => {
+      // Silence and our own aborts are normal; anything else (no permission, no network) ends it.
+      if (e.error !== 'no-speech' && e.error !== 'aborted') onHeard = null
+    }
+    r.onend = () => {
+      if (background === r) background = null
+      const next = onHeard
+      if (next) setTimeout(() => onHeard === next && hear(next), 250)
+    }
+    background = r
+    try {
+      r.start()
+    } catch {
+      background = null
+    }
+  }
+
+  function stopHearing() {
+    onHeard = null
+    const r = background
+    background = null
+    r?.abort()
   }
 
   function stopKeepAlive() {
@@ -178,6 +230,8 @@ export function useSpeech() {
     listen,
     stopListening,
     cancelListening,
+    hear,
+    stopHearing,
     speak,
     togglePause,
     stopSpeaking

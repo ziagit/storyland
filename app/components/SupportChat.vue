@@ -97,7 +97,7 @@ const problem = computed(() => error.value || speech.error.value)
 const lastReply = computed(() => [...history.value].reverse().find((m) => m.role === 'assistant')?.content ?? '')
 
 const status = computed(() => {
-  if (speech.listening.value) return 'Listening…'
+  if (speech.listening.value || heard.value) return 'Listening…'
   if (sending.value) return 'Thinking…'
   if (reading.value && speech.speaking.value) return speech.paused.value ? 'Paused' : 'Reading a story'
   if (speech.speaking.value) return speech.paused.value ? 'Paused' : 'Speaking'
@@ -166,8 +166,94 @@ function useVoice() {
 
 function listen() {
   error.value = ''
+  micUsed.value = true
   speech.listen((text) => send(text))
 }
+
+// Interrupting: while the helper talks, the microphone stays on (once the reader has used it,
+// so it never asks for permission unprompted). "Stop", "pause" and "continue" work at once;
+// anything else is a new question that cuts the helper off.
+const micUsed = ref(false)
+// What the reader is saying over the helper, shown as they speak.
+const heard = ref('')
+// Whether the speech is paused because the reader started talking (not because they said pause).
+let held = false
+// Word pairs in what's being said aloud. The microphone hears the helper too, and what it
+// hears of itself is mostly the same pairs.
+let spokenPairs = new Set<string>()
+
+const STOP = /\b(stop|quiet|shush|shh+|enough|silence)\b/
+const PAUSE = /\b(pause|wait|hold on)\b/
+const RESUME = /\b(continue|resume|go on|keep going|carry on)\b/
+
+function wordsOf(text: string): string[] {
+  return text.toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').split(/\s+/).filter(Boolean)
+}
+
+function pairsOf(words: string[]): string[] {
+  return words.slice(1).map((word, i) => `${words[i]} ${word}`)
+}
+
+function say(parts: string[]) {
+  spokenPairs = new Set(pairsOf(wordsOf(parts.join(' '))))
+  speech.speak(parts)
+}
+
+function isEcho(words: string[]): boolean {
+  const pairs = pairsOf(words)
+  return pairs.length > 0 && pairs.filter((pair) => spokenPairs.has(pair)).length / pairs.length >= 0.5
+}
+
+// A short command, unless it's the helper's own words ("didn't stop" read from a story).
+function command(words: string[]): 'stop' | 'pause' | 'resume' | null {
+  if (!words.length || words.length > 4 || (words.length > 1 && isEcho(words))) return null
+  const said = words.join(' ')
+  if (STOP.test(said)) return 'stop'
+  if (PAUSE.test(said)) return 'pause'
+  if (RESUME.test(said)) return 'resume'
+  return null
+}
+
+function hold() {
+  if (speech.paused.value) return
+  speech.togglePause()
+  held = true
+}
+
+function onHeard(text: string, isFinal: boolean) {
+  if (!speech.speaking.value) return
+  const words = wordsOf(text)
+  const cmd = command(words)
+  const fromReader = cmd !== null || (words.length >= 3 && !isEcho(words))
+  if (!isFinal) {
+    // Go quiet the moment the reader starts talking; decide what they meant once they pause.
+    if (fromReader && cmd !== 'resume') hold()
+    if (fromReader && !cmd) heard.value = text.trim()
+    return
+  }
+  heard.value = ''
+  const heldForReader = held
+  held = false
+  if (cmd === 'stop') return speech.stopSpeaking()
+  if (cmd === 'pause') return hold()
+  if (cmd === 'resume' || !fromReader) {
+    // "Continue", or a false alarm (the helper hearing itself): carry on.
+    if (speech.paused.value && (cmd === 'resume' || heldForReader)) speech.togglePause()
+    return
+  }
+  speech.stopSpeaking()
+  send(text)
+}
+
+watch(
+  () => mode.value === 'voice' && micUsed.value && open.value && speech.speaking.value,
+  (on) => {
+    if (on) return speech.hear(onHeard)
+    speech.stopHearing()
+    heard.value = ''
+    held = false
+  }
+)
 
 async function send(text = draft.value) {
   const message = text.trim()
@@ -191,10 +277,10 @@ async function send(text = draft.value) {
     if (story && open.value && !muted.value) {
       // The reader asked to hear it, so it's read in text mode too: the reply, then the story.
       reading.value = story
-      speech.speak([spoken(res.reply), ...story.body])
+      say([spoken(res.reply), ...story.body])
     } else if (voice && mode.value === 'voice' && open.value && !muted.value) {
       // Only speak if the reader is still in voice mode with the chat open.
-      speech.speak(spoken(res.reply))
+      say([spoken(res.reply)])
     }
     await loadStories(res.reply)
   } catch (err: any) {
@@ -215,7 +301,7 @@ function toggleMute() {
 }
 
 function replay() {
-  if (lastReply.value) speech.speak(spoken(lastReply.value))
+  if (lastReply.value) say([spoken(lastReply.value)])
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -400,6 +486,17 @@ function onKeydown(e: KeyboardEvent) {
             <Square class="h-4 w-4" />
           </button>
         </div>
+
+        <!-- While the helper talks, it's listening for the reader -->
+        <p
+          v-if="mode === 'voice' && micUsed && speech.speaking.value"
+          class="flex items-center justify-center gap-1.5 border-t border-tan bg-white px-4 pt-2 text-xs text-ink-muted"
+          aria-live="polite"
+        >
+          <Mic class="h-3.5 w-3.5 shrink-0" :class="heard ? 'text-coral' : ''" />
+          <span v-if="heard" class="truncate font-semibold text-navy">"{{ heard }}"</span>
+          <span v-else>Say "stop", or ask something else</span>
+        </p>
 
         <!-- Voice controls -->
         <div
