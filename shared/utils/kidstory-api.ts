@@ -370,8 +370,10 @@ export interface StudioAgentResult {
   reply: string
   // The draft after this turn: new, revised, or unchanged.
   draft: StoryDraft | null
-  // What the Studio does after the reply: read the draft aloud, or publish it.
-  action: 'read' | 'publish' | null
+  // What the Studio does after the reply: read the draft aloud, publish it, or delete `target`.
+  action: 'read' | 'publish' | 'delete' | null
+  // The published story to delete, for action "delete".
+  target: { slug: string; title: string } | null
   steps: AgentStep[]
   history: ChatMessage[]
   storyHistory: ChatMessage[]

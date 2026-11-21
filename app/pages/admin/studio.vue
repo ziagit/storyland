@@ -68,7 +68,7 @@ watch(voice.speaking, (speaking) => {
 
 const orbState = computed<OrbState>(() => {
   if (voice.listening.value) return 'listening'
-  if (voice.transcribing.value || generating.value || publishing.value) return 'thinking'
+  if (voice.transcribing.value || generating.value || publishing.value || deleting.value) return 'thinking'
   if (voice.speaking.value) return voice.paused.value ? 'paused' : 'speaking'
   return 'idle'
 })
@@ -76,6 +76,7 @@ const orbState = computed<OrbState>(() => {
 const voiceStatus = computed(() => {
   if (voice.listening.value) return 'Listening…'
   if (publishing.value) return 'Publishing…'
+  if (deleting.value) return 'Deleting…'
   if (voice.transcribing.value || generating.value) return 'Thinking…'
   if (voice.speaking.value && voice.paused.value) return 'Paused'
   if (reading.value) return 'Reading'
@@ -86,6 +87,7 @@ const voiceStatus = computed(() => {
 
 const generating = ref(false)
 const publishing = ref(false)
+const deleting = ref(false)
 const error = ref('')
 const publishedSlug = ref('')
 
@@ -125,7 +127,8 @@ async function ask(promptText: string) {
     const res = await adminFetch<{
       reply: string
       draft: StoryDraft | null
-      action: 'read' | 'publish' | null
+      action: 'read' | 'publish' | 'delete' | null
+      target: { slug: string; title: string } | null
       history: ChatMessage[]
       storyHistory: ChatMessage[]
     }>('/api/studio/assistant', {
@@ -158,6 +161,8 @@ async function ask(promptText: string) {
     } else if (res.action === 'publish') {
       // publish() says how it went.
       await publish()
+    } else if (res.action === 'delete' && res.target) {
+      await deleteStory(res.target)
     } else if (voiceOn.value) {
       voice.say([spoken(res.reply)])
     }
@@ -179,7 +184,7 @@ function onSend() {
 // The orb and the mic button: tap to talk, tap again when done. Tapping while the
 // agent speaks cuts it off and listens.
 function talk() {
-  if (generating.value || publishing.value) return
+  if (generating.value || publishing.value || deleting.value) return
   error.value = ''
   voice.talk()
 }
@@ -201,6 +206,22 @@ async function publish() {
     reply(`Publishing ${title} didn't work: ${error.value}`)
   } finally {
     publishing.value = false
+  }
+}
+
+// A published story the owner asked the assistant to delete (and confirmed).
+async function deleteStory(target: { slug: string; title: string }) {
+  deleting.value = true
+  try {
+    await adminFetch(`/api/admin/stories/${encodeURIComponent(target.slug)}`, { method: 'DELETE' })
+    if (publishedSlug.value === target.slug) publishedSlug.value = ''
+    reply(`Deleted. ${target.title} is no longer on the site.`)
+  } catch (err: any) {
+    const why = err?.data?.statusMessage || err?.message || 'Deleting failed.'
+    error.value = why
+    reply(`Deleting ${target.title} didn't work: ${why}`)
+  } finally {
+    deleting.value = false
   }
 }
 
